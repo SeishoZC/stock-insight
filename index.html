@@ -2,7 +2,6 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <!-- 加入 viewport-fit=cover 支援 iOS 瀏海螢幕滿版 -->
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     
     <!-- iOS PWA 專屬 Meta Tags -->
@@ -19,17 +18,12 @@
         body {
             font-family: 'Noto Sans TC', sans-serif;
             background-color: #F3F4F6;
-            /* 針對手機觸控體驗優化：禁止文字選取、移除點擊高光 */
             -webkit-tap-highlight-color: transparent;
             user-select: none;
         }
 
-        /* 允許文字輸入與搜尋框可以選取 */
-        input, .selectable-text {
-            user-select: text;
-        }
+        input, .selectable-text { user-select: text; }
         
-        /* 圖表容器約束 */
         .chart-container {
             position: relative;
             width: 100%;
@@ -37,41 +31,34 @@
             margin-right: auto;
         }
         
-        .chart-main {
-            height: 450px;
-            max-height: 550px;
-        }
-        
-        .chart-sub {
-            height: 250px;
-            max-height: 300px;
-        }
+        .chart-main { height: 450px; max-height: 550px; }
+        .chart-sub { height: 250px; max-height: 300px; }
 
         @media (max-width: 768px) {
             .chart-main { height: 350px; }
             .chart-sub { height: 200px; }
-            /* 預留底部導覽列的空間 */
             body { padding-bottom: 80px; } 
         }
 
-        /* 台股顏色慣例：紅漲綠跌 */
         .text-up { color: #EF4444; }
         .text-down { color: #10B981; }
         .bg-up { background-color: #EF4444; }
         .bg-down { background-color: #10B981; }
 
-        /* 時間切換按鈕點擊狀態 */
-        .time-btn.active {
-            background-color: #2563EB;
-            color: white;
-            border-color: #2563EB;
-        }
+        .time-btn.active { background-color: #2563EB; color: white; border-color: #2563EB; }
+        ::-webkit-scrollbar { width: 0px; background: transparent; }
 
-        /* 隱藏捲軸但保留捲動功能，讓畫面更像 App */
-        ::-webkit-scrollbar {
-            width: 0px;
-            background: transparent;
+        /* 載入中動畫 */
+        .loader {
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #3498db;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
         }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body class="text-gray-800 antialiased pb-safe">
@@ -80,85 +67,32 @@
 <!-- Application Structure Plan: 
     1. Dynamic PWA Injection (JS generates manifest and service worker).
     2. Header: Includes "Install App" button triggered by PWA events.
-    3. Mobile Bottom Nav: Fixed at the bottom for mobile devices only (App-like feel).
-    4. Dashboard: Same powerful layout as previous version.
+    3. Dashboard: Fetches REAL data from FinMind API.
 -->
 <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
 
-<!-- 動態注入 PWA 相關資源的腳本 (單檔架構核心) -->
 <script>
     // 1. 動態建立 PWA Manifest
     const manifestJSON = {
-        name: "StockInsight Pro 專業看盤",
-        short_name: "StockInsight",
-        description: "您的專屬台股技術分析儀表板",
-        start_url: window.location.href,
-        display: "standalone",
-        background_color: "#F3F4F6",
-        theme_color: "#2563EB",
-        icons: [{
-            // 使用 Base64 單色圖標代替實體圖檔以符合單檔限制
-            src: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADACAYAAABS3GwHAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAE1SURBVHhe7cExAQAAAMKg9U9tCy8gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOAziAAgKk0LHEAAAAASUVORK5CYII=",
-            sizes: "192x192",
-            type: "image/png"
-        }]
+        name: "StockInsight Pro", short_name: "StockInsight", display: "standalone",
+        background_color: "#F3F4F6", theme_color: "#2563EB",
+        icons: [{ src: "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAMAAAADACAYAAABS3GwHAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAE1SURBVHhe7cExAQAAAMKg9U9tCy8gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAOAziAAgKk0LHEAAAAASUVORK5CYII=", sizes: "192x192", type: "image/png" }]
     };
-    const manifestBlob = new Blob([JSON.stringify(manifestJSON)], { type: 'application/json' });
-    const manifestUrl = URL.createObjectURL(manifestBlob);
     const manifestLink = document.createElement('link');
-    manifestLink.rel = 'manifest';
-    manifestLink.href = manifestUrl;
+    manifestLink.rel = 'manifest'; manifestLink.href = URL.createObjectURL(new Blob([JSON.stringify(manifestJSON)], { type: 'application/json' }));
     document.head.appendChild(manifestLink);
-
-    // 2. 動態註冊 Service Worker (PWA 的靈魂，支援離線與快取機制)
-    const swCode = `
-        self.addEventListener('install', (event) => {
-            self.skipWaiting();
-        });
-        self.addEventListener('activate', (event) => {
-            return self.clients.claim();
-        });
-        self.addEventListener('fetch', (event) => {
-            // 由於是純前端展示，僅攔截並略過複雜的快取邏輯，確保 PWA 資格成立
-            if (event.request.url.startsWith('http')) {
-                event.respondWith(fetch(event.request).catch(() => new Response('Offline Mode')));
-            }
-        });
-    `;
-    const swBlob = new Blob([swCode], { type: 'application/javascript' });
-    const swUrl = URL.createObjectURL(swBlob);
-
-    if ('serviceWorker' in navigator) {
-        window.addEventListener('load', () => {
-            navigator.serviceWorker.register(swUrl)
-                .then((reg) => console.log('PWA Service Worker 註冊成功!', reg.scope))
-                .catch((err) => console.log('Service Worker 註冊失敗:', err));
-        });
-    }
 </script>
 
 <div class="min-h-screen flex flex-col relative">
-    
-    <!-- PWA 安裝提示橫幅 (預設隱藏，符合條件才顯示) -->
-    <div id="installBanner" class="hidden bg-blue-600 text-white px-4 py-3 flex justify-between items-center shadow-md z-30">
-        <div class="flex flex-col">
-            <span class="font-bold text-sm">體驗更佳！安裝至手機桌面</span>
-            <span class="text-xs text-blue-200">免下載，秒開即用，支援全螢幕</span>
-        </div>
-        <button id="installBtn" class="bg-white text-blue-600 font-bold px-4 py-1.5 rounded-full text-sm shadow hover:bg-blue-50 active:scale-95 transition-transform">
-            安裝 App
-        </button>
-    </div>
-
     <!-- Header -->
     <header class="bg-white shadow-sm sticky top-0 z-20">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-col sm:flex-row justify-between items-center gap-4">
             <div class="flex items-center gap-2 w-full sm:w-auto justify-center sm:justify-start">
-                <span class="text-2xl font-bold text-blue-600 tracking-tight">📈 StockInsight</span>
+                <span class="text-2xl font-bold text-blue-600 tracking-tight">📈 StockInsight <span class="text-sm text-gray-400 bg-gray-100 px-2 py-0.5 rounded">即時版</span></span>
             </div>
             <div class="w-full sm:w-auto flex">
-                <input type="text" id="searchInput" placeholder="輸入代碼 (例: 2330)" class="w-full sm:w-64 px-4 py-2 text-sm border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent">
-                <button id="searchBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-r-md transition-colors font-medium text-sm active:bg-blue-800">
+                <input type="text" id="searchInput" placeholder="輸入台股代碼 (例: 2330, 0050)" class="w-full sm:w-64 px-4 py-2 text-sm border border-gray-300 rounded-l-md focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <button id="searchBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-r-md transition-colors font-medium text-sm">
                     搜尋
                 </button>
             </div>
@@ -168,11 +102,13 @@
     <!-- Main Content -->
     <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full">
         
-        <div id="errorMsg" class="hidden mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm flex items-center justify-center gap-2">
-            ⚠️ 找不到該股票代碼，請重新輸入 (支援: 2330, 2317, 2454)。
+        <!-- 狀態訊息列 -->
+        <div id="statusMsg" class="hidden mb-4 p-3 rounded-lg text-sm flex items-center justify-center gap-2 transition-all">
+            <span id="statusIcon"></span>
+            <span id="statusText"></span>
         </div>
 
-        <div id="dashboard" class="flex flex-col gap-6">
+        <div id="dashboard" class="flex flex-col gap-6 opacity-0 transition-opacity duration-500">
             
             <!-- 第一排：資料卡片 -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -180,63 +116,38 @@
                 <div class="bg-white rounded-2xl shadow-sm p-5 border-t-4 border-blue-500">
                     <div class="flex justify-between items-start">
                         <div>
-                            <h1 id="stockName" class="text-3xl font-bold text-gray-900 selectable-text">台積電</h1>
+                            <h1 id="stockName" class="text-3xl font-bold text-gray-900 selectable-text">--</h1>
                             <div class="flex items-center gap-2 mt-1">
-                                <span id="stockTicker" class="text-gray-500 font-medium selectable-text">2330</span>
-                                <span id="stockSector" class="bg-blue-50 text-blue-700 text-xs px-2 py-0.5 rounded border border-blue-100">半導體業</span>
+                                <span id="stockTicker" class="text-gray-500 font-medium selectable-text">--</span>
+                                <span class="bg-blue-50 text-blue-700 text-xs px-2 py-0.5 rounded border border-blue-100">台股市場</span>
                             </div>
                         </div>
                     </div>
                     <div class="mt-4 flex items-end gap-3">
-                        <span id="currentPrice" class="text-5xl font-bold text-up">--</span>
+                        <span id="currentPrice" class="text-5xl font-bold">--</span>
                         <div class="flex flex-col pb-1">
-                            <span id="priceChange" class="text-lg font-semibold text-up">--</span>
-                            <span id="percentChange" class="text-sm font-medium text-up">(--%)</span>
+                            <span id="priceChange" class="text-lg font-semibold">--</span>
+                            <span id="percentChange" class="text-sm font-medium">(--%)</span>
                         </div>
                     </div>
-                    <p class="text-xs text-gray-400 mt-4 text-right">即時報價更新</p>
+                    <p class="text-xs text-gray-400 mt-4 text-right">資料來源: FinMind 開源數據</p>
                 </div>
 
-                <!-- Card 2: 基本面 -->
+                <!-- Card 2 & 3: 基本面與籌碼面 (保留靜態框架，真實環境需串接更多API) -->
                 <div class="bg-white rounded-2xl shadow-sm p-5 border border-gray-100">
                     <h2 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">📊 基本面指標</h2>
-                    <div class="grid grid-cols-2 gap-3">
-                        <div class="bg-gray-50 p-2 rounded-lg">
-                            <p class="text-xs text-gray-500">本益比</p>
-                            <p id="fundPE" class="font-bold text-gray-800 text-lg">--</p>
-                        </div>
-                        <div class="bg-gray-50 p-2 rounded-lg">
-                            <p class="text-xs text-gray-500">殖利率</p>
-                            <p id="fundYield" class="font-bold text-gray-800 text-lg">--</p>
-                        </div>
-                        <div class="bg-gray-50 p-2 rounded-lg">
-                            <p class="text-xs text-gray-500">EPS</p>
-                            <p id="fundEPS" class="font-bold text-gray-800 text-lg">--</p>
-                        </div>
-                        <div class="bg-gray-50 p-2 rounded-lg">
-                            <p class="text-xs text-gray-500">ROE</p>
-                            <p id="fundROE" class="font-bold text-gray-800 text-lg">--</p>
-                        </div>
+                    <div class="grid grid-cols-2 gap-3 opacity-50">
+                        <div class="bg-gray-50 p-2 rounded-lg"><p class="text-xs text-gray-500">本益比</p><p class="font-bold text-gray-800 text-lg">需串接API</p></div>
+                        <div class="bg-gray-50 p-2 rounded-lg"><p class="text-xs text-gray-500">殖利率</p><p class="font-bold text-gray-800 text-lg">需串接API</p></div>
                     </div>
+                    <p class="text-xs text-gray-400 mt-3">*基礎報價版暫不提供財報數據</p>
                 </div>
 
-                <!-- Card 3: 籌碼面 -->
-                <div class="bg-white rounded-2xl shadow-sm p-5 border border-gray-100 flex flex-col">
-                    <h2 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">💰 籌碼動向</h2>
-                    <div class="flex-grow flex flex-col justify-center space-y-3">
-                        <div class="flex justify-between items-center px-2">
-                            <span class="text-gray-700 font-medium text-sm">外資</span>
-                            <span id="instForeign" class="font-bold text-lg text-up">--</span>
-                        </div>
-                        <div class="flex justify-between items-center px-2">
-                            <span class="text-gray-700 font-medium text-sm">投信</span>
-                            <span id="instTrust" class="font-bold text-lg text-down">--</span>
-                        </div>
-                        <div class="flex justify-between items-center px-2">
-                            <span class="text-gray-700 font-medium text-sm">自營商</span>
-                            <span id="instDealer" class="font-bold text-lg text-up">--</span>
-                        </div>
-                    </div>
+                <div class="bg-white rounded-2xl shadow-sm p-5 border border-gray-100">
+                    <h2 class="text-sm font-bold text-gray-500 uppercase tracking-wider mb-3">📰 最新動態</h2>
+                    <ul class="divide-y divide-gray-100 opacity-50">
+                        <li class="py-2 text-sm font-medium text-gray-700">新聞爬蟲模組需額外建置伺服器...</li>
+                    </ul>
                 </div>
             </div>
 
@@ -245,7 +156,7 @@
                 <div class="mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
                         <h2 class="text-lg font-bold text-gray-800 flex items-center gap-2">
-                            K線走勢
+                            真實K線走勢
                             <span class="flex items-center text-[10px] sm:text-xs font-normal text-gray-500 bg-gray-100 px-2 py-1 rounded">
                                 <span class="inline-block w-2 h-2 bg-yellow-400 rounded-full mr-1"></span> 5MA
                                 <span class="inline-block w-2 h-2 bg-cyan-500 rounded-full mr-1 ml-2"></span> 10MA
@@ -253,7 +164,6 @@
                             </span>
                         </h2>
                     </div>
-                    <!-- 時間區間切換按鈕 -->
                     <div class="flex bg-gray-100 p-1 rounded-lg border border-gray-200 w-full sm:w-auto justify-between" id="timeFilters">
                         <button class="time-btn flex-1 sm:flex-none px-3 py-1.5 text-sm font-medium rounded-md text-gray-600 transition-colors" data-days="20">1月</button>
                         <button class="time-btn flex-1 sm:flex-none px-3 py-1.5 text-sm font-medium rounded-md text-gray-600 transition-colors active" data-days="60">3月</button>
@@ -267,19 +177,14 @@
             </div>
 
             <!-- 第三排：副圖指標 -->
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <!-- RSI -->
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
                 <div class="bg-white rounded-2xl shadow-sm p-4 sm:p-5 border border-gray-100">
                     <div class="mb-3 flex justify-between items-center">
                         <h3 class="text-sm font-bold text-gray-800">RSI (14日)</h3>
                         <span id="currentRSI" class="font-bold text-lg text-blue-600">--</span>
                     </div>
-                    <div class="chart-container chart-sub">
-                        <canvas id="rsiChart"></canvas>
-                    </div>
+                    <div class="chart-container chart-sub"><canvas id="rsiChart"></canvas></div>
                 </div>
-
-                <!-- KD -->
                 <div class="bg-white rounded-2xl shadow-sm p-4 sm:p-5 border border-gray-100">
                     <div class="mb-3 flex justify-between items-center">
                         <h3 class="text-sm font-bold text-gray-800">KD (9日)</h3>
@@ -288,148 +193,161 @@
                             <span class="text-sm font-semibold" style="color: #8B5CF6">D: <span id="currentD">--</span></span>
                         </div>
                     </div>
-                    <div class="chart-container chart-sub">
-                        <canvas id="kdChart"></canvas>
-                    </div>
+                    <div class="chart-container chart-sub"><canvas id="kdChart"></canvas></div>
                 </div>
             </div>
-
-            <!-- 第四排：相關新聞 -->
-            <div class="bg-white rounded-2xl shadow-sm p-5 border border-gray-100 mb-6">
-                <h2 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2">📰 最新動態</h2>
-                <ul id="newsList" class="divide-y divide-gray-100">
-                    <!-- 動態載入新聞 -->
-                </ul>
-            </div>
-
         </div>
     </main>
-
-    <!-- 手機版專屬底部導覽列 (只在小螢幕 md:hidden 顯示) -->
-    <!-- 使用 Unicode 符號模擬 App 圖示，符合 NO SVG 規則 -->
-    <nav class="md:hidden fixed bottom-0 w-full bg-white border-t border-gray-200 flex justify-around items-center pt-2 pb-6 px-2 z-30 drop-shadow-2xl">
-        <button class="flex flex-col items-center justify-center w-16 text-blue-600 active:scale-95 transition-transform">
-            <span class="text-xl mb-1">🏠</span>
-            <span class="text-[10px] font-bold">首頁</span>
-        </button>
-        <button class="flex flex-col items-center justify-center w-16 text-gray-400 hover:text-blue-600 active:scale-95 transition-transform">
-            <span class="text-xl mb-1">📋</span>
-            <span class="text-[10px] font-medium">自選股</span>
-        </button>
-        <button class="flex flex-col items-center justify-center w-16 text-gray-400 hover:text-blue-600 active:scale-95 transition-transform">
-            <span class="text-xl mb-1">📰</span>
-            <span class="text-[10px] font-medium">新聞</span>
-        </button>
-        <button class="flex flex-col items-center justify-center w-16 text-gray-400 hover:text-blue-600 active:scale-95 transition-transform">
-            <span class="text-xl mb-1">👤</span>
-            <span class="text-[10px] font-medium">我的</span>
-        </button>
-    </nav>
-
 </div>
 
 <script>
-    // --- PWA 專屬邏輯：處理安裝按鈕顯示 ---
-    let deferredPrompt;
-    const installBanner = document.getElementById('installBanner');
-    const installBtn = document.getElementById('installBtn');
-
-    window.addEventListener('beforeinstallprompt', (e) => {
-        // 防止瀏覽器自動跳出預設的迷你資訊列
-        e.preventDefault();
-        // 將事件保存下來，稍後點擊按鈕時觸發
-        deferredPrompt = e;
-        // 顯示我們自訂的安裝橫幅
-        installBanner.classList.remove('hidden');
-    });
-
-    installBtn.addEventListener('click', async () => {
-        if (deferredPrompt) {
-            installBanner.classList.add('hidden'); // 隱藏橫幅
-            deferredPrompt.prompt(); // 顯示系統原生安裝對話框
-            const { outcome } = await deferredPrompt.userChoice;
-            console.log(`User response to the install prompt: ${outcome}`);
-            deferredPrompt = null;
-        }
-    });
-
-    window.addEventListener('appinstalled', () => {
-        installBanner.classList.add('hidden');
-        console.log('App 已成功安裝');
-    });
-
-    // --- 資料引擎與圖表邏輯 (延續前一版本的優良架構) ---
-    function generateAllDates(days) {
-        const dates = []; let d = new Date(); d.setDate(d.getDate() - (days * 1.5));
-        while(dates.length < days) {
-            d.setDate(d.getDate() + 1);
-            if(d.getDay() !== 0 && d.getDay() !== 6) dates.push(`${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`);
-        }
-        return dates;
-    }
-    const allDates = generateAllDates(250);
-
+    // --- 1. 真實數學指標計算公式 (取代原本的假亂數) ---
+    
+    // 計算均線 (Moving Average)
     function calculateMA(prices, period) {
-        const ma = [];
+        let ma = [];
         for (let i = 0; i < prices.length; i++) {
             if (i < period - 1) ma.push(null);
             else {
-                let sum = 0; for (let j = 0; j < period; j++) sum += prices[i - j];
+                let sum = 0;
+                for (let j = 0; j < period; j++) sum += prices[i - j];
                 ma.push(parseFloat((sum / period).toFixed(2)));
             }
         }
         return ma;
     }
 
-    function generateStockHistory(startPrice, volatility, trend, days) {
-        let prices = [], ohlc = [], volumes = [], colors = [], rsi = [], kData = [], dData = [];
-        let currPrice = startPrice * (1 - trend * days), prevK = 50, prevD = 50;
-
-        for (let i = 0; i < days; i++) {
-            let change = (Math.random() - 0.5) * volatility + trend;
-            let o = currPrice, c = o * (1 + change), h = Math.max(o, c) * (1 + Math.random() * volatility * 0.5), l = Math.min(o, c) * (1 - Math.random() * volatility * 0.5);
-            o = parseFloat(o.toFixed(2)); h = parseFloat(h.toFixed(2)); l = parseFloat(l.toFixed(2)); c = parseFloat(c.toFixed(2));
-            
-            ohlc.push({ o, h, l, c }); prices.push(c); colors.push(c >= o ? '#EF4444' : '#10B981');
-            let baseVol = startPrice > 500 ? 20 : 150;
-            volumes.push(Math.floor(baseVol * (1 + (Math.random() - 0.5) * 0.8) + (Math.abs(change) * 1000)));
-
-            let fakeRSI = Math.max(10, Math.min(90, 50 + (change / volatility) * 35 + (Math.random()-0.5)*10));
-            rsi.push(parseFloat(fakeRSI.toFixed(1)));
-
-            let rsv = Math.max(0, Math.min(100, 50 + (change / volatility) * 45));
-            let currK = (2/3) * prevK + (1/3) * rsv, currD = (2/3) * prevD + (1/3) * currK;
-            kData.push(parseFloat(currK.toFixed(1))); dData.push(parseFloat(currD.toFixed(1)));
-            prevK = currK; prevD = currD; currPrice = c;
+    // 計算 RSI (14日平滑計算)
+    function calculateRSI(prices, period = 14) {
+        let rsi = new Array(prices.length).fill(null);
+        if (prices.length < period) return rsi;
+        
+        let up = 0, down = 0;
+        // 計算第一筆 RSI 的平均漲跌
+        for(let i = 1; i <= period; i++) {
+            let diff = prices[i] - prices[i-1];
+            if(diff > 0) up += diff; else down -= diff;
         }
-        return { ohlc, prices, volumes, colors, rsi, k: kData, d: dData, ma5: calculateMA(prices, 5), ma10: calculateMA(prices, 10), ma20: calculateMA(prices, 20) };
+        up /= period; down /= period;
+        rsi[period] = 100 - (100 / (1 + (up / (down === 0 ? 0.001 : down))));
+
+        // 後續使用平滑移動平均法 (Smoothed Moving Average)
+        for (let i = period + 1; i < prices.length; i++) {
+            let diff = prices[i] - prices[i-1];
+            let currentUp = diff > 0 ? diff : 0;
+            let currentDown = diff < 0 ? -diff : 0;
+            
+            up = (up * (period - 1) + currentUp) / period;
+            down = (down * (period - 1) + currentDown) / period;
+            
+            let rs = up / (down === 0 ? 0.001 : down);
+            rsi[i] = parseFloat((100 - (100 / (1 + rs))).toFixed(1));
+        }
+        return rsi;
     }
 
-    const stockDB = {
-        "2330": {
-            ticker: "2330", name: "台積電", sector: "半導體", cap: "230,000",
-            fundamentals: { pe: "22.5", yield: "1.8%", eps: "38.50", roe: "28.5%" },
-            institutional: { foreign: "+12,450", trust: "+850", dealer: "-320" },
-            news: [{ date: "3小時前", title: "先進製程產能滿載，外資調高目標價", source: "財經網" }, { date: "昨天", title: "AI 晶片需求爆發，看好下半年營收動能", source: "科技報" }],
-            history: generateStockHistory(2290, 0.025, 0.001, 250)
-        },
-        "2317": {
-            ticker: "2317", name: "鴻海", sector: "其他電子", cap: "28,500",
-            fundamentals: { pe: "14.2", yield: "4.5%", eps: "11.20", roe: "10.5%" },
-            institutional: { foreign: "-5,200", trust: "+1,200", dealer: "+450" },
-            news: [{ date: "5小時前", title: "AI 伺服器出貨放量，營收創同期新高", source: "財經網" }, { date: "昨天", title: "蘋果新機備貨啟動，鄭州廠擴大招工", source: "經濟報" }],
-            history: generateStockHistory(155, 0.03, 0.0005, 250)
-        },
-        "2454": {
-            ticker: "2454", name: "聯發科", sector: "半導體", cap: "18,200",
-            fundamentals: { pe: "18.5", yield: "5.2%", eps: "60.50", roe: "22.1%" },
-            institutional: { foreign: "+2,100", trust: "-300", dealer: "-150" },
-            news: [{ date: "1小時前", title: "天璣 9400 跑分曝光，效能超車競品", source: "科技報" }, { date: "昨天", title: "第三季財測優於預期，手機市場回溫", source: "財經網" }],
-            history: generateStockHistory(1150, 0.04, 0.0015, 250)
-        }
-    };
+    // 計算 KD 指標 (9日, RSV)
+    function calculateKD(highs, lows, closes, period = 9) {
+        let k = new Array(closes.length).fill(null);
+        let d = new Array(closes.length).fill(null);
+        let prevK = 50, prevD = 50; // 初始預設值
 
-    let chartPriceVol, chartRSI, chartKD, currentStockId = '2330', currentTimeRange = 60;
+        for(let i = period - 1; i < closes.length; i++) {
+            let windowHighs = highs.slice(i - period + 1, i + 1);
+            let windowLows = lows.slice(i - period + 1, i + 1);
+            let maxH = Math.max(...windowHighs);
+            let minL = Math.min(...windowLows);
+            
+            let rsv = maxH === minL ? 50 : ((closes[i] - minL) / (maxH - minL)) * 100;
+            let currK = (2/3) * prevK + (1/3) * rsv;
+            let currD = (2/3) * prevD + (1/3) * currK;
+            
+            k[i] = parseFloat(currK.toFixed(1)); 
+            d[i] = parseFloat(currD.toFixed(1));
+            prevK = currK; prevD = currD;
+        }
+        return {k, d};
+    }
+
+    // --- 2. 串接真實 API 函式 ---
+    
+    // 儲存從 API 抓回來的全部原始數據
+    let globalStockData = null; 
+    let currentStockId = '';
+    let currentTimeRange = 60;
+
+    async function fetchRealStockData(stockId) {
+        const msgDiv = document.getElementById('statusMsg');
+        const icon = document.getElementById('statusIcon');
+        const text = document.getElementById('statusText');
+        const dashboard = document.getElementById('dashboard');
+
+        // 顯示載入中
+        dashboard.classList.add('opacity-0');
+        msgDiv.className = 'mb-4 p-3 bg-blue-50 border border-blue-200 text-blue-700 rounded-lg text-sm flex items-center justify-center gap-2';
+        icon.className = 'loader'; text.textContent = `正在連接證交所資料庫... (抓取 ${stockId} 過去一年歷史數據)`;
+        msgDiv.classList.remove('hidden');
+
+        // 設定抓取時間範圍 (過去一年 365天)
+        const endDate = new Date().toISOString().split('T')[0];
+        const startDateObj = new Date();
+        startDateObj.setFullYear(startDateObj.getFullYear() - 1);
+        const startDate = startDateObj.toISOString().split('T')[0];
+
+        // 呼叫 FinMind 台灣股市開源 API
+        const url = `https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockPrice&data_id=${stockId}&start_date=${startDate}&end_date=${endDate}`;
+
+        try {
+            const response = await fetch(url);
+            const result = await response.json();
+
+            if (result.status === 200 && result.data && result.data.length > 0) {
+                // 資料處理
+                const rawData = result.data;
+                const dates = [], prices = [], highs = [], lows = [], ohlc = [], volumes = [], colors = [];
+
+                rawData.forEach(day => {
+                    dates.push(day.date.substring(5)); // 取 MM-DD
+                    prices.push(day.close);
+                    highs.push(day.max);
+                    lows.push(day.min);
+                    ohlc.push({ o: day.open, h: day.max, l: day.min, c: day.close });
+                    volumes.push(Math.round(day.Trading_Volume / 1000)); // 轉換為千股 (張數)
+                    colors.push(day.close >= day.open ? '#EF4444' : '#10B981');
+                });
+
+                // 計算真實指標
+                const rsi = calculateRSI(prices);
+                const kd = calculateKD(highs, lows, prices);
+                const ma5 = calculateMA(prices, 5);
+                const ma10 = calculateMA(prices, 10);
+                const ma20 = calculateMA(prices, 20);
+
+                // 存入全域變數供切換時間使用
+                globalStockData = {
+                    ticker: stockId, name: `${stockId} 個股`, // API 沒有回傳名稱，暫以代碼替代
+                    dates, prices, ohlc, volumes, colors,
+                    rsi, k: kd.k, d: kd.d, ma5, ma10, ma20
+                };
+
+                msgDiv.classList.add('hidden');
+                dashboard.classList.remove('opacity-0');
+                updateDashboardUI(currentTimeRange);
+
+            } else {
+                throw new Error("找不到資料");
+            }
+        } catch (error) {
+            console.error("API 錯誤:", error);
+            msgDiv.className = 'mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm flex items-center justify-center gap-2';
+            icon.className = 'text-xl'; icon.textContent = '⚠️';
+            text.textContent = `查無此代碼或 API 連線失敗 (${stockId})。支援台股代碼，例如：2330, 2317, 2603`;
+        }
+    }
+
+
+    // --- 3. 圖表初始化與渲染邏輯 ---
+    let chartPriceVol, chartRSI, chartKD;
     const formatNumber = (num) => num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 
     function initCharts() {
@@ -453,7 +371,7 @@
                                 const ds = ctx.dataset;
                                 if (ds.id === 'k-body') return `開: ${formatNumber(ctx.raw[0])} | 收: ${formatNumber(ctx.raw[1])} ${ctx.raw[1]>=ctx.raw[0]?'▲':'▼'}`;
                                 if (ds.id === 'k-wick') return `高: ${formatNumber(ctx.raw[1])} | 低: ${formatNumber(ctx.raw[0])}`;
-                                if (ds.id === 'vol') return `成交量: ${formatNumber(ctx.raw)} 千股`;
+                                if (ds.id === 'vol') return `成交量: ${formatNumber(ctx.raw)} 張`;
                                 if (ds.id === 'ma5') return `5MA: ${ctx.raw!==null?formatNumber(ctx.raw):'-'}`;
                                 if (ds.id === 'ma10') return `10MA: ${ctx.raw!==null?formatNumber(ctx.raw):'-'}`;
                                 if (ds.id === 'ma20') return `20MA: ${ctx.raw!==null?formatNumber(ctx.raw):'-'}`;
@@ -475,18 +393,23 @@
         chartKD = new Chart(document.getElementById('kdChart').getContext('2d'), { type: 'line', data: { labels: [], datasets: [] }, options: { ...cOpt, scales: { ...cOpt.scales, y: { ...cOpt.scales.y, grid: { color: (c) => [20, 80].includes(c.tick.value) ? 'rgba(239, 68, 68, 0.2)' : '#F3F4F6' } } } } });
     }
 
-    function updateDashboard(stockId, days) {
-        const stock = stockDB[stockId];
-        if (!stock) return false;
-        currentStockId = stockId;
-        const hist = stock.history, lastIdx = hist.prices.length - 1;
-        const currentPrice = hist.prices[lastIdx], prevPrice = hist.prices[lastIdx - 1];
-        const change = currentPrice - prevPrice, pctChange = (change / prevPrice) * 100;
+    function updateDashboardUI(days) {
+        if (!globalStockData) return;
+        const data = globalStockData;
+        const lastIdx = data.prices.length - 1;
+        
+        // 為了避免假日的空檔影響計算，真實資料取筆數
+        const sliceCount = Math.min(days, data.prices.length);
 
+        // 更新文字面板
+        const currentPrice = data.prices[lastIdx];
+        const prevPrice = data.prices[lastIdx - 1];
+        const change = currentPrice - prevPrice;
+        const pctChange = (change / prevPrice) * 100;
         const colorClass = change >= 0 ? 'text-up' : 'text-down';
-        document.getElementById('stockName').textContent = stock.name;
-        document.getElementById('stockTicker').textContent = stock.ticker;
-        document.getElementById('stockSector').textContent = stock.sector;
+
+        document.getElementById('stockName').textContent = data.ticker;
+        document.getElementById('stockTicker').textContent = data.ticker;
         
         const elPrice = document.getElementById('currentPrice');
         elPrice.textContent = formatNumber(currentPrice); elPrice.className = `text-5xl font-bold ${colorClass}`;
@@ -495,27 +418,21 @@
         const elPct = document.getElementById('percentChange');
         elPct.textContent = `(${change >= 0 ? '+' : ''}${pctChange.toFixed(2)}%)`; elPct.className = `text-sm font-medium ${colorClass}`;
 
-        document.getElementById('fundPE').textContent = stock.fundamentals.pe;
-        document.getElementById('fundYield').textContent = stock.fundamentals.yield;
-        document.getElementById('fundEPS').textContent = stock.fundamentals.eps;
-        document.getElementById('fundROE').textContent = stock.fundamentals.roe;
-        
-        const upInst = (id, val) => { const el = document.getElementById(id); el.textContent = val + " 張"; el.className = `font-bold text-lg ${val.includes('-') ? 'text-down' : 'text-up'}`; };
-        upInst('instForeign', stock.institutional.foreign); upInst('instTrust', stock.institutional.trust); upInst('instDealer', stock.institutional.dealer);
+        document.getElementById('currentRSI').textContent = data.rsi[lastIdx] ? data.rsi[lastIdx].toFixed(1) : '--';
+        document.getElementById('currentK').textContent = data.k[lastIdx] ? data.k[lastIdx].toFixed(1) : '--';
+        document.getElementById('currentD').textContent = data.d[lastIdx] ? data.d[lastIdx].toFixed(1) : '--';
 
-        document.getElementById('currentRSI').textContent = hist.rsi[lastIdx].toFixed(1);
-        document.getElementById('currentK').textContent = hist.k[lastIdx].toFixed(1);
-        document.getElementById('currentD').textContent = hist.d[lastIdx].toFixed(1);
-
-        document.getElementById('newsList').innerHTML = stock.news.map(n => `
-            <li class="py-3 flex flex-col sm:flex-row sm:items-center gap-2 hover:bg-gray-50 transition-colors rounded cursor-pointer border-b border-gray-50 last:border-0">
-                <span class="text-xs text-gray-400 min-w-[60px]">${n.date}</span>
-                <span class="text-xs bg-blue-50 text-blue-600 px-2 py-0.5 rounded border border-blue-100 whitespace-nowrap self-start sm:self-auto">${n.source}</span>
-                <span class="text-sm font-medium text-gray-700 hover:text-blue-600 line-clamp-2">${n.title}</span>
-            </li>`).join('');
-
-        const slDates = allDates.slice(-days), slOHLC = hist.ohlc.slice(-days), slCol = hist.colors.slice(-days), slVol = hist.volumes.slice(-days);
-        const slMA5 = hist.ma5.slice(-days), slMA10 = hist.ma10.slice(-days), slMA20 = hist.ma20.slice(-days), slRSI = hist.rsi.slice(-days), slK = hist.k.slice(-days), slD = hist.d.slice(-days);
+        // 裁切圖表資料
+        const slDates = data.dates.slice(-sliceCount);
+        const slOHLC = data.ohlc.slice(-sliceCount);
+        const slCol = data.colors.slice(-sliceCount);
+        const slVol = data.volumes.slice(-sliceCount);
+        const slMA5 = data.ma5.slice(-sliceCount);
+        const slMA10 = data.ma10.slice(-sliceCount);
+        const slMA20 = data.ma20.slice(-sliceCount);
+        const slRSI = data.rsi.slice(-sliceCount);
+        const slK = data.k.slice(-sliceCount);
+        const slD = data.d.slice(-sliceCount);
 
         const wicks = slOHLC.map(i => [i.l, i.h]), bodies = slOHLC.map(i => [i.o, i.c]);
         const allL = slOHLC.map(i => i.l), allH = slOHLC.map(i => i.h), pRange = Math.max(...allH) - Math.min(...allL);
@@ -524,7 +441,6 @@
         chartPriceVol.options.scales.y.max = Math.ceil(Math.max(...allH) + pRange * 0.1);
         chartPriceVol.options.scales.y1.suggestedMax = Math.max(...slVol) * 3.5;
 
-        // 判斷手機版或電腦版決定 K 棒粗細
         const isMobile = window.innerWidth < 600;
         const bPct = isMobile ? 0.9 : 0.8, cPct = isMobile ? 1.0 : 0.9;
 
@@ -543,15 +459,17 @@
         chartKD.data.labels = slDates; chartKD.data.datasets = [{ data: slK, borderColor: '#F59E0B', borderWidth: 1.5, pointRadius: 0, tension: 0.2 }, { data: slD, borderColor: '#8B5CF6', borderWidth: 1.5, pointRadius: 0, tension: 0.2 }]; chartKD.update();
     }
 
+    // --- 4. 事件監聽 ---
     document.addEventListener('DOMContentLoaded', () => {
-        initCharts(); updateDashboard(currentStockId, currentTimeRange);
+        initCharts(); 
+        // 預設載入台積電
+        fetchRealStockData('2330');
 
         const handleSearch = () => {
             const q = document.getElementById('searchInput').value.trim();
             if (!q) return;
-            let fId = Object.keys(stockDB).find(id => id === q || stockDB[id].name.includes(q));
-            if (fId) { document.getElementById('errorMsg').classList.add('hidden'); document.activeElement.blur(); updateDashboard(fId, currentTimeRange); } 
-            else document.getElementById('errorMsg').classList.remove('hidden');
+            document.activeElement.blur(); // 收起手機鍵盤
+            fetchRealStockData(q);
         };
 
         document.getElementById('searchBtn').addEventListener('click', handleSearch);
@@ -560,18 +478,17 @@
         const timeBtns = document.querySelectorAll('.time-btn');
         timeBtns.forEach(btn => {
             btn.addEventListener('click', (e) => {
+                if(!globalStockData) return;
                 timeBtns.forEach(b => b.classList.remove('active', 'bg-blue-600', 'text-white'));
                 timeBtns.forEach(b => b.classList.add('text-gray-600'));
                 e.target.classList.add('active', 'bg-blue-600', 'text-white');
                 e.target.classList.remove('text-gray-600');
                 currentTimeRange = parseInt(e.target.dataset.days);
-                updateDashboard(currentStockId, currentTimeRange);
+                updateDashboardUI(currentTimeRange);
             });
         });
-        document.querySelector(`.time-btn[data-days="${currentTimeRange}"]`).classList.add('active', 'bg-blue-600', 'text-white');
     });
 
-    // 視窗大小改變時重新整理圖表佈局
     window.addEventListener('resize', () => {
         if(chartPriceVol) chartPriceVol.resize();
         if(chartRSI) chartRSI.resize();
