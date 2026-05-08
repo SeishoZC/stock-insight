@@ -161,7 +161,7 @@
                 <div class="mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                     <div>
                         <h2 class="text-lg font-bold text-gray-800 flex items-center gap-2">
-                            真實K線走勢
+                            K線走勢
                             <span class="flex items-center text-[10px] sm:text-xs font-normal text-gray-500 bg-gray-100 px-2 py-1 rounded">
                                 <span class="inline-block w-2 h-2 bg-yellow-400 rounded-full mr-1"></span> 5MA
                                 <span class="inline-block w-2 h-2 bg-cyan-500 rounded-full mr-1 ml-2"></span> 10MA
@@ -206,14 +206,14 @@
 </div>
 
 <script>
-    // 常用台股名稱對照表 (因為 API 有時只回傳代碼)
+    // 常用台股名稱對照表
     const stockNames = {
         "2330": "台積電", "2317": "鴻海", "2454": "聯發科", "2308": "台達電", "2382": "廣達", 
         "2603": "長榮", "2881": "富邦金", "2882": "國泰金", "0050": "元大台灣50", "0056": "元大高股息",
         "3231": "緯創", "2356": "英業達", "2609": "陽明", "2615": "萬海", "2303": "聯電"
     };
 
-    // 計算技術指標
+    // --- 技術指標計算 ---
     function calculateMA(prices, period) {
         let ma = [];
         for (let i = 0; i < prices.length; i++) {
@@ -269,7 +269,61 @@
     let currentStockId = '';
     let currentTimeRange = 60;
 
-    // --- 核心更新：同時抓取股價、基本面、新聞 ---
+    // --- 安全 Fetch 封裝 (避免某個 API 失敗導致全面崩潰) ---
+    const safeFetch = async (url) => {
+        try {
+            const res = await fetch(url);
+            if (!res.ok) return { status: res.status, data: [], error: true };
+            return await res.json();
+        } catch (error) {
+            console.warn(`API 連線失敗: ${url}`, error);
+            return { status: 500, data: [], error: true };
+        }
+    };
+
+    // --- 備援系統：生成高度真實的模擬數據 ---
+    function loadMockData(stockId) {
+        const days = 250;
+        const startPrice = stockId === '2330' ? 850 : (stockId === '2317' ? 150 : 500); 
+        const dates = [], prices = [], highs = [], lows = [], ohlc = [], volumes = [], colors = [];
+        let currPrice = startPrice;
+        let d = new Date(); d.setDate(d.getDate() - days * 1.5);
+
+        for (let i = 0; i < days; i++) {
+            d.setDate(d.getDate() + 1);
+            if(d.getDay() === 0 || d.getDay() === 6) continue;
+            dates.push(`${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`);
+
+            let change = (Math.random() - 0.5) * 0.03 + 0.001;
+            let o = currPrice, c = o * (1 + change), h = Math.max(o, c) * (1 + Math.random() * 0.015), l = Math.min(o, c) * (1 - Math.random() * 0.015);
+            o = parseFloat(o.toFixed(2)); h = parseFloat(h.toFixed(2)); l = parseFloat(l.toFixed(2)); c = parseFloat(c.toFixed(2));
+
+            ohlc.push({ o, h, l, c }); prices.push(c); highs.push(h); lows.push(l); colors.push(c >= o ? '#EF4444' : '#10B981');
+            volumes.push(Math.floor( (startPrice > 500 ? 20 : 150) * (1 + (Math.random() - 0.5) * 0.8) + (Math.abs(change) * 1000) ));
+            currPrice = c;
+        }
+
+        const rsi = calculateRSI(prices), kd = calculateKD(highs, lows, prices);
+        const ma5 = calculateMA(prices, 5), ma10 = calculateMA(prices, 10), ma20 = calculateMA(prices, 20);
+
+        globalStockData = {
+            ticker: stockId, name: stockNames[stockId] || `${stockId} (本機預覽)`,
+            dates, prices, ohlc, volumes, colors,
+            rsi, k: kd.k, d: kd.d, ma5, ma10, ma20
+        };
+
+        // 填入模擬基本面與新聞
+        document.getElementById('fundPE').textContent = (15 + Math.random()*10).toFixed(2);
+        document.getElementById('fundYield').textContent = (2 + Math.random()*4).toFixed(2) + '%';
+        document.getElementById('fundPBR').textContent = (1.5 + Math.random()*3).toFixed(2) + ' 倍';
+
+        document.getElementById('newsList').innerHTML = `
+            <li class="py-2 border-b border-gray-50 last:border-0"><a href="#" class="flex flex-col gap-1"><div class="flex items-center gap-2"><span class="text-[10px] text-gray-400 font-mono">今日</span><span class="text-[10px] bg-yellow-50 text-yellow-600 px-1.5 rounded border border-yellow-100">模擬新聞</span></div><span class="text-sm font-medium text-gray-700 hover:text-blue-600">${stockId} 營收創新高，外資調升評等</span></a></li>
+            <li class="py-2 border-b border-gray-50 last:border-0"><a href="#" class="flex flex-col gap-1"><div class="flex items-center gap-2"><span class="text-[10px] text-gray-400 font-mono">昨日</span><span class="text-[10px] bg-yellow-50 text-yellow-600 px-1.5 rounded border border-yellow-100">模擬新聞</span></div><span class="text-sm font-medium text-gray-700 hover:text-blue-600">法說會釋放利多，下半年展望樂觀</span></a></li>
+        `;
+    }
+
+    // --- 核心更新：加入備援機制的抓取流程 ---
     async function fetchRealStockData(stockId) {
         const msgDiv = document.getElementById('statusMsg');
         const icon = document.getElementById('statusIcon');
@@ -281,96 +335,97 @@
         icon.className = 'loader'; text.textContent = `正在連接證交所庫... (抓取 ${stockId} 報價、基本面與新聞)`;
         msgDiv.classList.remove('hidden');
 
-        // 設定時間範圍
         const endDate = new Date().toISOString().split('T')[0];
-        
-        // 股價需要一年資料畫圖
         const startDateObj = new Date(); startDateObj.setFullYear(startDateObj.getFullYear() - 1);
         const startDatePrice = startDateObj.toISOString().split('T')[0];
         
-        // 新聞和基本面只需要最近 30 天即可
         const shortDateObj = new Date(); shortDateObj.setDate(shortDateObj.getDate() - 30);
         const startDateShort = shortDateObj.toISOString().split('T')[0];
 
-        // API 網址準備
         const urlPrice = `https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockPrice&data_id=${stockId}&start_date=${startDatePrice}&end_date=${endDate}`;
         const urlPER = `https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockPER&data_id=${stockId}&start_date=${startDateShort}&end_date=${endDate}`;
         const urlNews = `https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockNews&data_id=${stockId}&start_date=${startDateShort}&end_date=${endDate}`;
 
         try {
-            // 同時發出三個 API 請求 (平行處理加速)
-            const [resPrice, resPER, resNews] = await Promise.all([
-                fetch(urlPrice), fetch(urlPER), fetch(urlNews)
+            // 平行抓取三個 API，若其中一個失敗不會影響其他
+            const [dataPrice, dataPER, dataNews] = await Promise.all([
+                safeFetch(urlPrice), safeFetch(urlPER), safeFetch(urlNews)
             ]);
 
-            const dataPrice = await resPrice.json();
-            const dataPER = await resPER.json();
-            const dataNews = await resNews.json();
+            // 判斷主資料(股價)是否抓取成功
+            if (dataPrice.error || !dataPrice.data || dataPrice.data.length === 0) {
+                throw new Error("無法取得真實股價，轉用模擬數據");
+            }
 
-            if (dataPrice.status === 200 && dataPrice.data && dataPrice.data.length > 0) {
-                // 1. 處理股價與技術指標
-                const rawData = dataPrice.data;
-                const dates = [], prices = [], highs = [], lows = [], ohlc = [], volumes = [], colors = [];
-                rawData.forEach(day => {
-                    dates.push(day.date.substring(5)); 
-                    prices.push(day.close); highs.push(day.max); lows.push(day.min);
-                    ohlc.push({ o: day.open, h: day.max, l: day.min, c: day.close });
-                    volumes.push(Math.round(day.Trading_Volume / 1000));
-                    colors.push(day.close >= day.open ? '#EF4444' : '#10B981');
-                });
-                const rsi = calculateRSI(prices), kd = calculateKD(highs, lows, prices);
-                const ma5 = calculateMA(prices, 5), ma10 = calculateMA(prices, 10), ma20 = calculateMA(prices, 20);
+            // 1. 處理股價與技術指標
+            const rawData = dataPrice.data;
+            const dates = [], prices = [], highs = [], lows = [], ohlc = [], volumes = [], colors = [];
+            rawData.forEach(day => {
+                dates.push(day.date.substring(5)); 
+                prices.push(day.close); highs.push(day.max); lows.push(day.min);
+                ohlc.push({ o: day.open, h: day.max, l: day.min, c: day.close });
+                volumes.push(Math.round(day.Trading_Volume / 1000));
+                colors.push(day.close >= day.open ? '#EF4444' : '#10B981');
+            });
+            const rsi = calculateRSI(prices), kd = calculateKD(highs, lows, prices);
+            const ma5 = calculateMA(prices, 5), ma10 = calculateMA(prices, 10), ma20 = calculateMA(prices, 20);
 
-                globalStockData = {
-                    ticker: stockId, name: stockNames[stockId] || `${stockId} 個股`,
-                    dates, prices, ohlc, volumes, colors,
-                    rsi, k: kd.k, d: kd.d, ma5, ma10, ma20
-                };
+            globalStockData = {
+                ticker: stockId, name: stockNames[stockId] || `${stockId} 個股`,
+                dates, prices, ohlc, volumes, colors,
+                rsi, k: kd.k, d: kd.d, ma5, ma10, ma20
+            };
 
-                // 2. 處理基本面資料 (本益比、殖利率)
-                if (dataPER.status === 200 && dataPER.data && dataPER.data.length > 0) {
-                    const latestPER = dataPER.data[dataPER.data.length - 1]; // 取陣列最後一筆(最新)
-                    document.getElementById('fundPE').textContent = latestPER.PER ? latestPER.PER.toFixed(2) : '--';
-                    document.getElementById('fundYield').textContent = latestPER.dividend_yield ? latestPER.dividend_yield.toFixed(2) + '%' : '--%';
-                    document.getElementById('fundPBR').textContent = latestPER.PBR ? latestPER.PBR.toFixed(2) + ' 倍' : '--';
-                } else {
-                    document.getElementById('fundPE').textContent = '--';
-                    document.getElementById('fundYield').textContent = '--%';
-                    document.getElementById('fundPBR').textContent = '--';
-                }
+            // 2. 處理基本面資料
+            if (!dataPER.error && dataPER.data && dataPER.data.length > 0) {
+                const latestPER = dataPER.data[dataPER.data.length - 1]; 
+                document.getElementById('fundPE').textContent = latestPER.PER ? latestPER.PER.toFixed(2) : '--';
+                document.getElementById('fundYield').textContent = latestPER.dividend_yield ? latestPER.dividend_yield.toFixed(2) + '%' : '--%';
+                document.getElementById('fundPBR').textContent = latestPER.PBR ? latestPER.PBR.toFixed(2) + ' 倍' : '--';
+            } else {
+                document.getElementById('fundPE').textContent = '--';
+                document.getElementById('fundYield').textContent = '--%';
+                document.getElementById('fundPBR').textContent = '--';
+            }
 
-                // 3. 處理最新新聞
-                const newsUl = document.getElementById('newsList');
-                if (dataNews.status === 200 && dataNews.data && dataNews.data.length > 0) {
-                    // 反轉陣列讓最新的新聞在最上面，並取前 5 則
-                    const latestNews = dataNews.data.reverse().slice(0, 5);
-                    newsUl.innerHTML = latestNews.map(news => {
-                        const dateStr = news.date.substring(5, 10); // 取出 MM-DD
-                        return `
-                        <li class="py-2 border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors">
-                            <a href="${news.link}" target="_blank" class="flex flex-col gap-1">
-                                <div class="flex items-center gap-2">
-                                    <span class="text-[10px] text-gray-400 font-mono">${dateStr}</span>
-                                    <span class="text-[10px] bg-blue-50 text-blue-600 px-1.5 rounded border border-blue-100">${news.source}</span>
-                                </div>
-                                <span class="text-sm font-medium text-gray-700 hover:text-blue-600 line-clamp-1">${news.title}</span>
-                            </a>
-                        </li>`;
-                    }).join('');
-                } else {
-                    newsUl.innerHTML = `<li class="py-4 text-sm text-gray-500 text-center">近期無重大相關新聞</li>`;
-                }
+            // 3. 處理最新新聞
+            const newsUl = document.getElementById('newsList');
+            if (!dataNews.error && dataNews.data && dataNews.data.length > 0) {
+                const latestNews = dataNews.data.reverse().slice(0, 5);
+                newsUl.innerHTML = latestNews.map(news => {
+                    const dateStr = news.date.substring(5, 10);
+                    return `
+                    <li class="py-2 border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors">
+                        <a href="${news.link}" target="_blank" class="flex flex-col gap-1">
+                            <div class="flex items-center gap-2">
+                                <span class="text-[10px] text-gray-400 font-mono">${dateStr}</span>
+                                <span class="text-[10px] bg-blue-50 text-blue-600 px-1.5 rounded border border-blue-100">${news.source}</span>
+                            </div>
+                            <span class="text-sm font-medium text-gray-700 hover:text-blue-600 line-clamp-1">${news.title}</span>
+                        </a>
+                    </li>`;
+                }).join('');
+            } else {
+                newsUl.innerHTML = `<li class="py-4 text-sm text-gray-500 text-center">近期無重大相關新聞</li>`;
+            }
 
-                msgDiv.classList.add('hidden');
-                dashboard.classList.remove('opacity-0');
-                updateDashboardUI(currentTimeRange);
+            msgDiv.classList.add('hidden');
+            dashboard.classList.remove('opacity-0');
+            updateDashboardUI(currentTimeRange);
 
-            } else { throw new Error("找不到股價資料"); }
         } catch (error) {
-            console.error("API 錯誤:", error);
-            msgDiv.className = 'mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg text-sm flex items-center justify-center gap-2';
+            console.error("啟動模擬數據備援:", error);
+            
+            // UI 提示切換為模擬模式
+            msgDiv.className = 'mb-4 p-3 bg-yellow-50 border border-yellow-200 text-yellow-700 rounded-lg text-sm flex items-center justify-center gap-2';
             icon.className = 'text-xl'; icon.textContent = '⚠️';
-            text.textContent = `查無此代碼或連線失敗 (${stockId})。請輸入正確代碼，如: 2330, 2603`;
+            text.textContent = `API 暫時無法連線 (CORS或流量限制)，已切換顯示「${stockId} 模擬測試數據」`;
+
+            // 產生模擬資料避免畫面崩潰
+            loadMockData(stockId);
+            
+            dashboard.classList.remove('opacity-0');
+            updateDashboardUI(currentTimeRange);
         }
     }
 
