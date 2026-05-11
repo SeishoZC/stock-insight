@@ -51,7 +51,7 @@
 </head>
 <body class="antialiased pb-safe">
 
-<!-- 設定 Token 彈出視窗 (Modal) -->
+<!-- 設定 Token 彈出視窗 -->
 <div id="settingsModal" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center view-hidden backdrop-blur-sm transition-opacity">
     <div class="bg-gray-800 border border-gray-700 p-6 rounded-2xl shadow-2xl w-[90%] max-w-md transform scale-100 transition-transform">
         <h2 class="text-xl font-bold text-white mb-2 flex items-center gap-2">⚙️ 系統設定 (API 金鑰)</h2>
@@ -60,7 +60,7 @@
         </p>
         <div class="mb-4">
             <label class="block text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">FinMind API Token</label>
-            <input type="password" id="apiTokenInput" placeholder="請貼上您的 Token (未填則為匿名模式)" class="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm transition-colors">
+            <input type="password" id="apiTokenInput" placeholder="請貼上您的 Token (未填則為匿名排隊模式)" class="w-full px-4 py-3 bg-gray-900 border border-gray-700 rounded-lg text-white placeholder-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500 font-mono text-sm transition-colors">
         </div>
         <div class="flex justify-end gap-3 mt-6">
             <button onclick="closeSettings()" class="px-4 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-gray-700 transition-colors font-medium text-sm">取消</button>
@@ -78,9 +78,7 @@
                     <span class="text-2xl font-bold text-blue-500 tracking-tight cursor-pointer drop-shadow-md" onclick="switchView('home')">📈 StockInsight</span>
                     <span class="text-xs font-mono text-gray-300 bg-red-900/50 px-2 py-0.5 rounded border border-red-800 hidden sm:inline-block">100% 實戰版</span>
                 </div>
-                <!-- 手機版也看得到設定按鈕 -->
                 <button onclick="openSettings()" class="sm:hidden text-gray-400 hover:text-white transition-colors p-2">⚙️</button>
-                
                 <nav class="hidden md:flex gap-2 ml-4">
                     <button id="nav-desktop-home" class="px-3 py-1.5 rounded-md font-bold text-white bg-blue-600 transition-colors" onclick="switchView('home')">首頁</button>
                     <button id="nav-desktop-watchlist" class="px-3 py-1.5 rounded-md font-medium text-gray-400 hover:text-white hover:bg-gray-700 transition-colors" onclick="switchView('watchlist')">自選股</button>
@@ -120,7 +118,7 @@
                     </div>
                 </div>
                 <div class="bg-gray-800 rounded-2xl shadow-lg p-5 border border-gray-700 flex flex-col">
-                    <h2 class="text-sm font-bold text-gray-400 uppercase mb-3">📰 真實市場動態</h2>
+                    <h2 class="text-sm font-bold text-gray-400 uppercase mb-3 flex justify-between">📰 真實市場動態</h2>
                     <ul id="newsList" class="divide-y divide-gray-700 flex-grow overflow-y-auto max-h-[140px] pr-2"><li class="py-2 text-sm text-gray-500 text-center mt-4">搜尋中...</li></ul>
                 </div>
             </div>
@@ -215,7 +213,7 @@
                     <div id="tab-futures" class="data-tab view-hidden grid grid-cols-1 gap-6">
                         <div>
                             <div class="mb-2 flex justify-between">
-                                <h3 class="text-sm font-bold text-gray-300">大盤風向：外資台指期淨未平倉口數 (TXF)</h3>
+                                <h3 class="text-sm font-bold text-gray-300">大盤風向：外資台指期淨未平倉口數 (TX)</h3>
                                 <span class="text-xs text-gray-500 hidden sm:inline-block">紅柱:淨多單 / 綠柱:淨空單</span>
                             </div>
                             <div class="chart-container chart-main"><canvas id="futuresOiChart"></canvas></div>
@@ -276,52 +274,34 @@
 
     // --- Token 設定管理 ---
     function getApiToken() { return localStorage.getItem('finmind_token') || ''; }
-    function openSettings() { 
-        document.getElementById('apiTokenInput').value = getApiToken();
-        document.getElementById('settingsModal').classList.remove('view-hidden'); 
-    }
+    function openSettings() { document.getElementById('apiTokenInput').value = getApiToken(); document.getElementById('settingsModal').classList.remove('view-hidden'); }
     function closeSettings() { document.getElementById('settingsModal').classList.add('view-hidden'); }
     function saveToken() {
         const t = document.getElementById('apiTokenInput').value.trim();
-        if (t) localStorage.setItem('finmind_token', t);
-        else localStorage.removeItem('finmind_token');
-        closeSettings();
-        alert('設定已儲存！請重新搜尋股票以套用新金鑰。');
+        if (t) localStorage.setItem('finmind_token', t); else localStorage.removeItem('finmind_token');
+        closeSettings(); alert('設定已儲存！請重新搜尋股票以套用新金鑰。');
     }
 
     // --- 合規排隊 Fetcher (API Queue Manager) ---
     const delay = ms => new Promise(res => setTimeout(res, ms));
     const ApiQueue = {
-        queue: [],
-        isProcessing: false,
-        add: function(url) {
-            return new Promise((resolve) => {
-                this.queue.push({ url, resolve });
-                this.process();
-            });
-        },
+        queue: [], isProcessing: false,
+        add: function(url) { return new Promise((resolve) => { this.queue.push({ url, resolve }); this.process(); }); },
         process: async function() {
             if (this.isProcessing || this.queue.length === 0) return;
             this.isProcessing = true;
             const { url, resolve } = this.queue.shift();
-            
             try {
-                const token = getApiToken();
-                const finalUrl = token ? `${url}&token=${token}` : url;
+                const token = getApiToken(); const finalUrl = token ? `${url}&token=${token}` : url;
                 const res = await fetch(finalUrl);
                 if (!res.ok) resolve({ error: true, data: [] });
                 else {
                     const json = await res.json();
-                    if (json.status !== 200) resolve({ error: true, data: [] });
-                    else resolve(json);
+                    if (json.status !== 200) resolve({ error: true, data: [] }); else resolve(json);
                 }
-            } catch {
-                resolve({ error: true, data: [] });
-            }
-
-            await delay(getApiToken() ? 100 : 1000);
-            this.isProcessing = false;
-            this.process();
+            } catch { resolve({ error: true, data: [] }); }
+            await delay(getApiToken() ? 100 : 800);
+            this.isProcessing = false; this.process();
         }
     };
 
@@ -422,9 +402,7 @@
         const msgDiv = document.getElementById('statusMsg'), icon = document.getElementById('statusIcon'), text = document.getElementById('statusText'), homeView = document.getElementById('view-home');
         homeView.classList.add('opacity-0'); msgDiv.className = 'mb-4 p-3 bg-blue-900/30 border border-blue-800 text-blue-300 rounded-lg text-sm flex justify-center gap-2';
         icon.className = 'loader'; 
-        
-        const hasToken = !!getApiToken();
-        text.textContent = hasToken ? `快速抓取 ${stockId} 數據中...` : `合規排隊獲取 ${stockId} 真實數據中 (無金鑰模式約需 5 秒)...`;
+        text.textContent = getApiToken() ? `快速抓取 ${stockId} 數據中...` : `合規排隊獲取 ${stockId} 真實數據中 (無金鑰模式約需 5 秒)...`;
         msgDiv.classList.remove('hidden');
 
         if (memoryCache[stockId]) {
@@ -433,14 +411,13 @@
             icon.className = 'text-xl'; icon.textContent = '⚡'; text.textContent = `已從本地快取秒速載入 ${stockId} 資料！`;
             setTimeout(() => msgDiv.classList.add('hidden'), 3000);
             homeView.classList.remove('opacity-0');
-            updateDashboardUI(currentTimeRange);
-            updateFollowBtnUI();
+            updateDashboardUI(currentTimeRange); updateFollowBtnUI();
             return;
         }
 
         const eD = new Date().toISOString().split('T')[0], sD = new Date(Date.now() - 365*24*60*60*1000).toISOString().split('T')[0];
         try {
-            // 第 1 步：透過 Queue 取得股價資料
+            // 第 1 步：取得股價
             const dataPrice = await ApiQueue.add(`https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockPrice&data_id=${stockId}&start_date=${sD}&end_date=${eD}`);
             if (dataPrice.error || !dataPrice.data || !dataPrice.data.length) throw new Error("無股價資料");
 
@@ -454,65 +431,69 @@
             const f=[], t=[], d=[], mp=[], ss=[], txOI=[]; 
             for(let i=0; i<dates.length; i++) { f.push(0); t.push(0); d.push(0); mp.push(0); ss.push(0); txOI.push(0); }
             
-            // 標記是否觸發模擬
             let isInstMocked = false, isMarginMocked = false, isFuturesMocked = false;
 
-            // 第 2 步：將所有附屬資料推入 Queue (底層會自動保證 1 秒發一個請求，絕不會被鎖！)
-            // 修正期指代碼為 TXF
+            // 第 2 步：將附屬資料推入 Queue (修正期指代碼為 'TX')
             const [dataInst, dataMargin, dataFutures] = await Promise.all([
                 ApiQueue.add(`https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockInstitutionalInvestorsBuySell&data_id=${stockId}&start_date=${sD}&end_date=${eD}`),
                 ApiQueue.add(`https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockMarginPurchaseShortSale&data_id=${stockId}&start_date=${sD}&end_date=${eD}`),
-                ApiQueue.add(`https://api.finmindtrade.com/api/v4/data?dataset=TaiwanFuturesInstitutionalInvestors&data_id=TXF&start_date=${sD}&end_date=${eD}`)
+                ApiQueue.add(`https://api.finmindtrade.com/api/v4/data?dataset=TaiwanFuturesInstitutionalInvestors&data_id=TX&start_date=${sD}&end_date=${eD}`)
             ]);
 
-            // 處理三大法人，若無資料則啟動局部模擬
+            // 安全解析：三大法人
+            let hasInstData = false;
             if(!dataInst.error && dataInst.data && dataInst.data.length > 0) {
                 dataInst.data.forEach(item => {
                     const idx = fullDates.indexOf(item.date.split(' ')[0]);
                     if(idx !== -1) {
                         const net = Math.round((item.buy - item.sell)/1000); const nameStr = item.name || '';
-                        if(nameStr.includes('外資') || nameStr.includes('Foreign')) f[idx] += net;
-                        if(nameStr.includes('投信') || nameStr.includes('Trust')) t[idx] += net;
-                        if(nameStr.includes('自營商') || nameStr.includes('Dealer')) d[idx] += net;
+                        if(nameStr.includes('外資') || nameStr.includes('Foreign')) { f[idx] += net; hasInstData = true; }
+                        if(nameStr.includes('投信') || nameStr.includes('Trust')) { t[idx] += net; hasInstData = true; }
+                        if(nameStr.includes('自營商') || nameStr.includes('Dealer')) { d[idx] += net; hasInstData = true; }
                     }
                 });
-            } else {
+            }
+            if (!hasInstData) {
                 isInstMocked = true;
-                for(let i=0; i<dates.length; i++) {
-                    f[i] = Math.floor((Math.random()-0.5)*5000); t[i] = Math.floor((Math.random()-0.5)*1000); d[i] = Math.floor((Math.random()-0.5)*800);
-                }
+                for(let i=0; i<dates.length; i++) { f[i] = Math.floor((Math.random()-0.5)*5000); t[i] = Math.floor((Math.random()-0.5)*1000); d[i] = Math.floor((Math.random()-0.5)*800); }
             }
 
-            // 處理融資券，若無資料則啟動局部模擬
+            // 安全解析：融資券
+            let hasMarginData = false;
             if(!dataMargin.error && dataMargin.data && dataMargin.data.length > 0) {
                 dataMargin.data.forEach(item => {
                     const idx = fullDates.indexOf(item.date.split(' ')[0]);
                     if(idx !== -1) {
                         mp[idx] = Math.round(item.MarginPurchaseTodayBalance - item.MarginPurchaseYesterdayBalance);
                         ss[idx] = Math.round(item.ShortSaleTodayBalance - item.ShortSaleYesterdayBalance);
+                        hasMarginData = true;
                     }
                 });
-            } else {
+            }
+            if (!hasMarginData) {
                 isMarginMocked = true;
-                for(let i=0; i<dates.length; i++) {
-                    mp[i] = Math.floor((Math.random()-0.5)*3000); ss[i] = Math.floor((Math.random()-0.5)*500);
-                }
+                for(let i=0; i<dates.length; i++) { mp[i] = Math.floor((Math.random()-0.5)*3000); ss[i] = Math.floor((Math.random()-0.5)*500); }
             }
 
-            // 處理期貨大盤，若無資料則啟動局部模擬
+            // 安全解析：期貨大盤 (TX)
+            let hasFuturesData = false;
             if(!dataFutures.error && dataFutures.data && dataFutures.data.length > 0) {
                 dataFutures.data.forEach(item => {
                     const idx = fullDates.indexOf(item.date.split(' ')[0]);
                     if(idx !== -1) {
                         const nameStr = item.name || '';
                         if(nameStr.includes('外資') || nameStr.includes('Foreign')) {
-                            txOI[idx] = item.open_interest_net_volume !== undefined 
-                                ? item.open_interest_net_volume 
-                                : ((item.long_open_interest - item.short_open_interest) || 0);
+                            let netOI = 0;
+                            if (item.open_interest_net_volume !== undefined) netOI = item.open_interest_net_volume;
+                            else if (item.long_open_interest !== undefined) netOI = item.long_open_interest - (item.short_open_interest||0);
+                            
+                            txOI[idx] = netOI;
+                            if (netOI !== 0) hasFuturesData = true; // 只要有非零數據就認定解析成功
                         }
                     }
                 });
-            } else {
+            }
+            if (!hasFuturesData) {
                 isFuturesMocked = true;
                 let oi = -15000;
                 for(let i=0; i<dates.length; i++) {
@@ -531,7 +512,6 @@
             };
             
             document.getElementById('priceSource').textContent = "歷史資料 (收盤)";
-            // 嘗試使用 Yahoo API 覆寫即時報價 (不經過 FinMind Queue)
             try {
                 const yRes = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${stockId}.TW?interval=1d&range=1d`)}`);
                 const yJson = JSON.parse((await yRes.json()).contents);
@@ -541,7 +521,7 @@
                 }
             } catch(e) {}
 
-            // 第 3 步：非同步載入基本面與新聞 (也是透過 Queue)
+            // 第 3 步：非同步載入基本面與新聞 (使用安全的 FinMind Queue)
             const shortSD = new Date(Date.now() - 30*24*60*60*1000).toISOString().split('T')[0];
             ApiQueue.add(`https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockPER&data_id=${stockId}&start_date=${shortSD}&end_date=${eD}`).then(res => {
                 if(!res.error && res.data && res.data.length>0) {
@@ -555,7 +535,7 @@
                 const ul = document.getElementById('newsList');
                 let html = '';
                 if(!res.error && res.data && res.data.length>0) {
-                    html = res.data.reverse().slice(0,5).map(n => `<li class="py-2 border-b border-gray-700 last:border-0 hover:bg-gray-700/50"><a href="${n.link}" target="_blank" class="flex flex-col gap-1"><div class="flex items-center gap-2"><span class="text-[10px] text-gray-500 font-mono">${n.date.substring(5,10)}</span><span class="text-[10px] bg-blue-900/40 text-blue-400 px-1.5 rounded">${n.source}</span></div><span class="text-sm text-gray-300 line-clamp-1">${n.title}</span></a></li>`).join('');
+                    html = res.data.reverse().slice(0,5).map(n => `<li class="py-2 border-b border-gray-700 last:border-0 hover:bg-gray-700/50"><a href="${n.link}" target="_blank" class="flex flex-col gap-1"><div class="flex items-center gap-2"><span class="text-[10px] text-gray-500 font-mono">${n.date.substring(5,10)}</span><span class="text-[10px] bg-blue-900/40 text-blue-400 px-1.5 rounded">${n.source}</span></div><span class="text-sm text-gray-300 line-clamp-2">${n.title}</span></a></li>`).join('');
                 } else {
                     html = `<li class="py-4 text-sm text-gray-500 text-center">近期無重大新聞</li>`;
                 }
@@ -566,7 +546,7 @@
                 if (isMarginMocked) warnings.push('信用交易'); 
                 if (isFuturesMocked) warnings.push('期指風向');
                 if (warnings.length > 0) {
-                    html = `<li class="py-2 border-b border-gray-700 bg-yellow-900/20 px-2 rounded mb-2"><span class="text-sm font-bold text-yellow-500 flex items-center gap-1">⚠️ <span>因未綁定金鑰觸發API限流，【${warnings.join('、')}】區塊已啟動備用模擬機制。請點擊右上角設定 Token。</span></span></li>` + html;
+                    html = `<li class="py-2 border-b border-gray-700 bg-yellow-900/20 px-2 rounded mb-2"><span class="text-sm font-bold text-yellow-500 flex items-center gap-1">⚠️ <span>因未綁定金鑰觸發API限流，【${warnings.join('、')}】圖表已啟動模擬機制防呆。請設定 Token 解除限制。</span></span></li>` + html;
                 }
                 ul.innerHTML = html;
             });
@@ -617,12 +597,11 @@
 
         for (let t of list) {
             try {
-                // 列表同樣透過 Queue 獲取，絕不塞爆 API
                 const res = await ApiQueue.add(`https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockPrice&data_id=${t}&start_date=${sD}&end_date=${eD}`);
                 if(!res.error && res.data && res.data.length>1) {
                     const c = res.data[res.data.length-1], p = res.data[res.data.length-2], diff = c.close-p.close, pct = (diff/p.close*100).toFixed(2), col = diff>=0?'text-up':'text-down';
                     html += `<tr onclick="document.getElementById('searchInput').value='${t}'; switchView('home'); fetchRealStockData('${t}');" class="hover:bg-gray-700 cursor-pointer border-b border-gray-700"><td class="p-3 text-left sticky left-0 bg-gray-800 z-10"><div class="font-bold text-gray-100">${stockNames[t]||'個股'}</div><div class="text-[10px] text-blue-400">${t}</div></td><td class="p-3 text-center">${stockSectors[t]||'台股'}</td><td class="p-3 font-bold ${col}">${formatNum(c.close)}</td><td class="p-3 ${col}">${diff>=0?'▲':'▼'}${Math.abs(diff).toFixed(2)}</td><td class="p-3 ${col}">${pct}%</td><td class="p-3 text-gray-400">${formatNum(c.open)}</td><td class="p-3 text-up">${formatNum(c.max)}</td><td class="p-3 text-down">${formatNum(c.min)}</td><td class="p-3 text-gray-500">${formatNum(p.close)}</td><td class="p-3 font-medium text-gray-300">${formatNum(Math.round(c.Trading_Volume/1000))}</td></tr>`;
-                    document.getElementById('watchlistGrid').innerHTML = html; // 邊抓邊渲染，體驗更好
+                    document.getElementById('watchlistGrid').innerHTML = html; 
                 }
             } catch(e){}
         }
