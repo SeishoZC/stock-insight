@@ -358,36 +358,89 @@
     function calcKD(highs, lows, closes, period = 9) { let k = new Array(closes.length).fill(null), d = new Array(closes.length).fill(null); let prevK = 50, prevD = 50; for(let i = period - 1; i < closes.length; i++) { let maxH = Math.max(...highs.slice(i-period+1, i+1)), minL = Math.min(...lows.slice(i-period+1, i+1)); let rsv = maxH === minL ? 50 : ((closes[i] - minL) / (maxH - minL)) * 100; prevK = (2/3) * prevK + (1/3) * rsv; prevD = (2/3) * prevD + (1/3) * prevK; k[i] = prevK; d[i] = prevD; } return {k, d}; }
 
     // --- 十字游標全局同步引擎 (Crosshair Sync Engine) ---
+    // 重寫十字游標插件：支援「完整十字線」與「Y軸動態價格標籤」
     let currentHoverIndex = null;
     let syncCrosshairRAF = null;
+    let mouseCoordinates = { x: null, y: null, activeChartId: null };
 
-    // 客製化 Chart.js 游標畫線插件
-    const crosshairPlugin = {
-        id: 'crosshair',
-        afterDatasetsDraw: (chart) => {
-            if (chart.tooltip?._active?.length) {
-                const activePoint = chart.tooltip._active[0];
+    const fullCrosshairPlugin = {
+        id: 'fullCrosshair',
+        afterDatasetsDraw: (chart, args, options) => {
+            const activeElements = chart.getActiveElements();
+            if (activeElements && activeElements.length > 0) {
                 const ctx = chart.ctx;
-                const x = activePoint.element.x;
+                const activePoint = activeElements[0];
+                // 追蹤實際滑鼠 X 座標，如果沒有滑鼠座標 (例如是被其他圖表同步過來的)，則使用資料點的 X
+                const x = (mouseCoordinates.activeChartId === chart.canvas.id && mouseCoordinates.x !== null) 
+                            ? mouseCoordinates.x : activePoint.element.x;
+                
                 const topY = chart.chartArea.top;
                 const bottomY = chart.chartArea.bottom;
+                const leftX = chart.chartArea.left;
+                const rightX = chart.chartArea.right;
 
                 ctx.save();
-                ctx.beginPath();
-                ctx.moveTo(x, topY);
-                ctx.lineTo(x, bottomY);
                 ctx.lineWidth = 1;
                 ctx.strokeStyle = 'rgba(156, 163, 175, 0.6)'; // Tailwind gray-400
                 ctx.setLineDash([4, 4]);
+
+                // 畫垂直線 (所有圖表都有)
+                ctx.beginPath();
+                ctx.moveTo(x, topY);
+                ctx.lineTo(x, bottomY);
                 ctx.stroke();
+
+                // 畫水平線與 Y 軸標籤 (僅限當前滑鼠懸浮的圖表)
+                if (mouseCoordinates.activeChartId === chart.canvas.id && mouseCoordinates.y !== null) {
+                    const y = mouseCoordinates.y;
+                    
+                    // 確保水平線不出界
+                    if (y >= topY && y <= bottomY) {
+                        ctx.beginPath();
+                        ctx.moveTo(leftX, y);
+                        ctx.lineTo(rightX, y);
+                        ctx.stroke();
+
+                        // 繪製 Y 軸右側的價格/數值標籤
+                        const yValue = chart.scales.y.getValueForPixel(y);
+                        if (yValue !== undefined) {
+                            const labelText = Number.isInteger(yValue) ? yValue.toString() : yValue.toFixed(2);
+                            ctx.font = '10px Arial';
+                            const textWidth = ctx.measureText(labelText).width;
+                            const labelPadding = 4;
+                            const rectWidth = textWidth + labelPadding * 2;
+                            const rectHeight = 16;
+                            
+                            // 標籤背景 (深藍色)
+                            ctx.fillStyle = '#1E3A8A'; // bg-blue-900
+                            ctx.fillRect(rightX, y - rectHeight / 2, rectWidth, rectHeight);
+                            
+                            // 標籤文字 (白色)
+                            ctx.fillStyle = '#FFFFFF';
+                            ctx.textAlign = 'center';
+                            ctx.textBaseline = 'middle';
+                            ctx.fillText(labelText, rightX + rectWidth / 2, y);
+                        }
+                    }
+                }
                 ctx.restore();
             }
         }
     };
 
     // 同步觸發器 (更新所有圖表與 HUD 面板)
-    const syncCrosshair = (index) => {
-        if (currentHoverIndex === index) return;
+    const syncCrosshair = (index, chartId, event) => {
+        if (event && chartId) {
+            mouseCoordinates.x = event.x;
+            mouseCoordinates.y = event.y;
+            mouseCoordinates.activeChartId = chartId;
+        } else {
+            mouseCoordinates.x = null;
+            mouseCoordinates.y = null;
+            mouseCoordinates.activeChartId = null;
+        }
+
+        if (currentHoverIndex === index && mouseCoordinates.activeChartId !== chartId) return;
         currentHoverIndex = index;
 
         if (syncCrosshairRAF) cancelAnimationFrame(syncCrosshairRAF);
@@ -396,10 +449,8 @@
             Object.values(charts).forEach(c => {
                 if (c && c.canvas && c.canvas.offsetParent !== null) { // 只更新可見圖表
                     if (index !== null) {
-                        c.tooltip.setActiveElements([{ datasetIndex: 0, index: index }], { x: 0, y: 0 });
                         c.setActiveElements([{ datasetIndex: 0, index: index }]);
                     } else {
-                        c.tooltip.setActiveElements([], { x: 0, y: 0 });
                         c.setActiveElements([]);
                     }
                     c.update('none'); // 極速刷新模式
@@ -471,24 +522,31 @@
 
     // --- Chart.js 初始化 ---
     function initCharts() {
-        Chart.register(crosshairPlugin);
+        Chart.register(fullCrosshairPlugin);
         Chart.defaults.font.family = "'Noto Sans TC', sans-serif"; Chart.defaults.color = '#9CA3AF';
         
-        // 隱藏原生 Tooltip，改用我們上方的 HUD
+        // 隱藏原生 Tooltip，改用我們上方的 HUD，並綁定十字游標追蹤
         const baseOpt = { 
             responsive: true, maintainAspectRatio: false, 
             interaction: { mode: 'index', intersect: false }, 
             plugins: { legend: { display: false }, tooltip: { enabled: false } },
-            onHover: (e, elements) => {
-                if (elements && elements.length > 0) syncCrosshair(elements[0].index);
-                else syncCrosshair(null);
+            onHover: (e, elements, chart) => {
+                if (elements && elements.length > 0) syncCrosshair(elements[0].index, chart.canvas.id, e);
+                else syncCrosshair(null, null, null);
             }
         };
+        
+        // 為了讓 Y 軸的價格標籤有空間顯示，稍微調整右側 padding
         const gridX = { display: false }, gridY = { color: '#374151' };
+        const layoutOpt = { padding: { right: 40 } };
 
-        charts.main = new Chart(document.getElementById('priceVolChart').getContext('2d'), { type: 'bar', data: { labels: [], datasets: [] }, options: { ...baseOpt, scales: { x: { grid: gridX }, y: { position: 'left', grid: gridY }, y1: { position: 'right', grid: { display: false }, min: 0 } } } });
-        const simpleOpt = { ...baseOpt, scales: { x: { display: false }, y: { grid: gridY } } };
-        const cOpt = { ...baseOpt, scales: { x: { display: false }, y: { min: 0, max: 100, ticks: { stepSize: 20 }, grid: gridY } } };
+        charts.main = new Chart(document.getElementById('priceVolChart').getContext('2d'), { 
+            type: 'bar', data: { labels: [], datasets: [] }, 
+            options: { ...baseOpt, layout: layoutOpt, scales: { x: { grid: gridX }, y: { position: 'left', grid: gridY }, y1: { position: 'right', grid: { display: false }, min: 0 } } } 
+        });
+        
+        const simpleOpt = { ...baseOpt, layout: layoutOpt, scales: { x: { display: false }, y: { grid: gridY, position: 'right' } } };
+        const cOpt = { ...baseOpt, layout: layoutOpt, scales: { x: { display: false }, y: { min: 0, max: 100, ticks: { stepSize: 20 }, grid: gridY, position: 'right' } } };
 
         charts.rsi = new Chart(document.getElementById('rsiChart'), { type: 'line', options: cOpt });
         charts.kd = new Chart(document.getElementById('kdChart'), { type: 'line', options: cOpt });
@@ -508,7 +566,7 @@
         // 綁定滑鼠離開圖表區事件
         Object.values(charts).forEach(c => {
             if(c && c.canvas) {
-                c.canvas.addEventListener('mouseleave', () => syncCrosshair(null));
+                c.canvas.addEventListener('mouseleave', () => syncCrosshair(null, null, null));
             }
         });
     }
