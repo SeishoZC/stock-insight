@@ -92,14 +92,11 @@
         </div>
     </header>
 
-    <!-- Main Content -->
     <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full">
-        <!-- 狀態與快取提示列 -->
         <div id="statusMsg" class="hidden mb-4 p-3 rounded-lg text-sm flex items-center justify-center gap-2 transition-all shadow-sm">
             <span id="statusIcon"></span><span id="statusText"></span>
         </div>
 
-        <!-- ==================== 視圖 1：個股儀表板 ==================== -->
         <div id="view-home" class="flex flex-col gap-6 transition-opacity duration-500">
             <!-- 上方三卡片 -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -123,24 +120,33 @@
                 </div>
             </div>
 
-            <!-- 主圖表 -->
+            <!-- 主圖表與動態資訊列 (HUD) -->
             <div class="bg-gray-800 rounded-2xl shadow-lg p-4 sm:p-5 border border-gray-700">
-                <div class="mb-4 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-                    <div>
-                        <h2 class="text-lg font-bold text-gray-100 flex items-center gap-2">
-                            K線走勢與成交量
-                            <span class="flex items-center text-[10px] sm:text-xs font-normal text-gray-400 bg-gray-900 border border-gray-700 px-2 py-1 rounded">
-                                <span class="w-2 h-2 bg-yellow-500 rounded-full mr-1"></span>5MA
-                                <span class="w-2 h-2 bg-cyan-400 rounded-full mr-1 ml-2"></span>10MA
-                                <span class="w-2 h-2 bg-purple-500 rounded-full mr-1 ml-2"></span>20MA
-                            </span>
-                        </h2>
-                    </div>
-                    <div class="flex bg-gray-900 p-1 rounded-lg border border-gray-700 w-full sm:w-auto justify-between" id="timeFilters">
-                        <button class="time-btn flex-1 sm:flex-none px-3 py-1.5 text-sm font-medium rounded-md text-gray-400 hover:text-white transition-colors" data-days="20">1月</button>
-                        <button class="time-btn flex-1 sm:flex-none px-3 py-1.5 text-sm font-medium rounded-md text-gray-400 active transition-colors" data-days="60">3月</button>
-                        <button class="time-btn flex-1 sm:flex-none px-3 py-1.5 text-sm font-medium rounded-md text-gray-400 hover:text-white transition-colors" data-days="120">半年</button>
-                        <button class="time-btn flex-1 sm:flex-none px-3 py-1.5 text-sm font-medium rounded-md text-gray-400 hover:text-white transition-colors" data-days="240">1年</button>
+                <div class="mb-4 flex flex-col sm:flex-row justify-between items-start gap-4">
+                    <div class="w-full">
+                        <div class="flex items-center justify-between w-full">
+                            <h2 class="text-lg font-bold text-gray-100 flex items-center gap-2">
+                                K線走勢與成交量
+                                <span id="hoverDate" class="text-xs bg-blue-900/50 text-blue-400 px-2 py-0.5 rounded border border-blue-800 ml-2 hidden sm:inline-block">----/--/--</span>
+                            </h2>
+                            <div class="flex bg-gray-900 p-1 rounded-lg border border-gray-700" id="timeFilters">
+                                <button class="time-btn px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md text-gray-400 hover:text-white transition-colors" data-days="20">1月</button>
+                                <button class="time-btn px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md text-gray-400 active transition-colors" data-days="60">3月</button>
+                                <button class="time-btn px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md text-gray-400 hover:text-white transition-colors" data-days="120">半年</button>
+                                <button class="time-btn px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md text-gray-400 hover:text-white transition-colors" data-days="240">1年</button>
+                            </div>
+                        </div>
+                        <!-- K線圖 HUD 比較表 -->
+                        <div class="text-[11px] sm:text-xs text-gray-400 flex flex-wrap gap-x-3 gap-y-1 mt-2">
+                            <span>開: <span id="valO" class="font-bold">--</span></span>
+                            <span>高: <span id="valH" class="font-bold text-up">--</span></span>
+                            <span>低: <span id="valL" class="font-bold text-down">--</span></span>
+                            <span>收: <span id="valC" class="font-bold">--</span></span>
+                            <span>量: <span id="valV" class="font-bold">--</span></span>
+                            <span class="text-yellow-500 ml-2">5MA: <span id="valMA5" class="font-bold">--</span></span>
+                            <span class="text-cyan-400">10MA: <span id="valMA10" class="font-bold">--</span></span>
+                            <span class="text-purple-500">20MA: <span id="valMA20" class="font-bold">--</span></span>
+                        </div>
                     </div>
                 </div>
                 <div class="chart-container chart-main"><canvas id="priceVolChart"></canvas></div>
@@ -160,61 +166,64 @@
                     <!-- Tab 1: 常用 -->
                     <div id="tab-common" class="data-tab grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <div>
-                            <div class="mb-2 flex justify-between"><h3 class="text-sm font-bold text-gray-300">RSI 相對強弱指標 (14日)</h3><span id="valRSI" class="text-blue-400 font-bold">--</span></div>
+                            <div class="mb-2 flex justify-between items-center"><h3 class="text-sm font-bold text-gray-300">RSI (14日)</h3><span id="valRSI" class="text-blue-400 font-bold">--</span></div>
                             <div class="chart-container chart-sub"><canvas id="rsiChart"></canvas></div>
                         </div>
                         <div>
-                            <div class="mb-2 flex justify-between"><h3 class="text-sm font-bold text-gray-300">KD 隨機指標 (9日)</h3><div class="text-sm"><span class="text-yellow-500 font-bold">K: <span id="valK">--</span></span> <span class="text-purple-500 font-bold ml-2">D: <span id="valD">--</span></span></div></div>
+                            <div class="mb-2 flex justify-between items-center"><h3 class="text-sm font-bold text-gray-300">KD (9日)</h3><div class="text-sm"><span class="text-yellow-500 font-bold">K: <span id="valK">--</span></span> <span class="text-purple-500 font-bold ml-2">D: <span id="valD">--</span></span></div></div>
                             <div class="chart-container chart-sub"><canvas id="kdChart"></canvas></div>
                         </div>
                     </div>
                     <!-- Tab 2: 技術分析 -->
                     <div id="tab-tech" class="data-tab view-hidden grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <div class="lg:col-span-2">
-                            <div class="mb-2 flex justify-between"><h3 class="text-sm font-bold text-gray-300">MACD 指數平滑異同移動平均線</h3></div>
+                            <div class="mb-2 flex justify-between items-center">
+                                <h3 class="text-sm font-bold text-gray-300">MACD</h3>
+                                <div class="text-xs flex gap-3"><span class="text-blue-400">DIF: <span id="valDIF" class="font-bold">--</span></span><span class="text-yellow-500">MACD: <span id="valMACD" class="font-bold">--</span></span><span>OSC: <span id="valOSC" class="font-bold">--</span></span></div>
+                            </div>
                             <div class="chart-container chart-sub"><canvas id="macdChart"></canvas></div>
                         </div>
                         <div>
-                            <div class="mb-2 flex justify-between"><h3 class="text-sm font-bold text-gray-300">OBV 能量潮指標</h3></div>
+                            <div class="mb-2 flex justify-between items-center"><h3 class="text-sm font-bold text-gray-300">OBV 能量潮</h3><span id="valOBV" class="text-yellow-500 font-bold text-xs">--</span></div>
                             <div class="chart-container chart-sub"><canvas id="obvChart"></canvas></div>
                         </div>
                         <div>
-                            <div class="mb-2 flex justify-between"><h3 class="text-sm font-bold text-gray-300">布林通道帶寬 (Bandwidth)</h3></div>
+                            <div class="mb-2 flex justify-between items-center"><h3 class="text-sm font-bold text-gray-300">布林通道帶寬</h3><span id="valBBW" class="text-cyan-400 font-bold text-xs">--</span></div>
                             <div class="chart-container chart-sub"><canvas id="bbwChart"></canvas></div>
                         </div>
                     </div>
                     <!-- Tab 3: 三大法人 -->
                     <div id="tab-inst" class="data-tab view-hidden grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <div>
-                            <div class="mb-2 flex justify-between"><h3 class="text-sm font-bold text-gray-300">外資買賣超 (張)</h3><span class="text-xs text-gray-500">紅買 / 綠賣</span></div>
+                            <div class="mb-2 flex justify-between items-center"><h3 class="text-sm font-bold text-gray-300">外資買賣超 (張)</h3><span id="valF" class="text-sm font-bold">--</span></div>
                             <div class="chart-container chart-sub"><canvas id="foreignChart"></canvas></div>
                         </div>
                         <div>
-                            <div class="mb-2 flex justify-between"><h3 class="text-sm font-bold text-gray-300">投信買賣超 (張)</h3><span class="text-xs text-gray-500">紅買 / 綠賣</span></div>
+                            <div class="mb-2 flex justify-between items-center"><h3 class="text-sm font-bold text-gray-300">投信買賣超 (張)</h3><span id="valT" class="text-sm font-bold">--</span></div>
                             <div class="chart-container chart-sub"><canvas id="trustChart"></canvas></div>
                         </div>
                         <div class="lg:col-span-2">
-                            <div class="mb-2 flex justify-between"><h3 class="text-sm font-bold text-gray-300">自營商買賣超 (張)</h3><span class="text-xs text-gray-500">紅買 / 綠賣</span></div>
+                            <div class="mb-2 flex justify-between items-center"><h3 class="text-sm font-bold text-gray-300">自營商買賣超 (張)</h3><span id="valDlr" class="text-sm font-bold">--</span></div>
                             <div class="chart-container chart-sub"><canvas id="dealerChart"></canvas></div>
                         </div>
                     </div>
                     <!-- Tab 4: 信用交易 -->
                     <div id="tab-margin" class="data-tab view-hidden grid grid-cols-1 lg:grid-cols-2 gap-6">
                         <div>
-                            <div class="mb-2 flex justify-between"><h3 class="text-sm font-bold text-gray-300">融資餘額增減 (張)</h3><span class="text-xs text-gray-500">散戶做多動能</span></div>
+                            <div class="mb-2 flex justify-between items-center"><h3 class="text-sm font-bold text-gray-300">融資餘額增減 (張)</h3><span id="valMP" class="text-sm font-bold">--</span></div>
                             <div class="chart-container chart-sub"><canvas id="marginPurchaseChart"></canvas></div>
                         </div>
                         <div>
-                            <div class="mb-2 flex justify-between"><h3 class="text-sm font-bold text-gray-300">融券餘額增減 (張)</h3><span class="text-xs text-gray-500">散戶做空動能</span></div>
+                            <div class="mb-2 flex justify-between items-center"><h3 class="text-sm font-bold text-gray-300">融券餘額增減 (張)</h3><span id="valSS" class="text-sm font-bold">--</span></div>
                             <div class="chart-container chart-sub"><canvas id="shortSaleChart"></canvas></div>
                         </div>
                     </div>
                     <!-- Tab 5: 期指風向 -->
                     <div id="tab-futures" class="data-tab view-hidden grid grid-cols-1 gap-6">
                         <div>
-                            <div class="mb-2 flex justify-between">
+                            <div class="mb-2 flex justify-between items-center">
                                 <h3 class="text-sm font-bold text-gray-300">大盤風向：外資台指期淨未平倉口數 (TX)</h3>
-                                <span class="text-xs text-gray-500 hidden sm:inline-block">紅柱:淨多單 / 綠柱:淨空單</span>
+                                <span id="valTxOI" class="text-sm font-bold">--</span>
                             </div>
                             <div class="chart-container chart-main"><canvas id="futuresOiChart"></canvas></div>
                         </div>
@@ -259,20 +268,18 @@
 </div>
 
 <script>
-    // --- 字典庫與設定 ---
     const stockNames = { "2330":"台積電", "2317":"鴻海", "2454":"聯發科", "2308":"台達電", "2382":"廣達", "2603":"長榮", "2881":"富邦金", "0050":"元大台灣50" };
     const stockSectors = { "2330":"半導體", "2317":"其他電子", "2454":"半導體", "2308":"電子零組", "2382":"電腦週邊", "2603":"航運業", "2881":"金融", "0050":"ETF" };
     const formatNum = (num) => num || num === 0 ? num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") : '--';
 
-    // --- 全域變數與快取系統 ---
     let globalStockData = null; 
+    let currentSlicedData = null; // 用於儲存當前縮放區間的資料陣列 (重要：供 HUD 同步使用)
     let currentStockId = '';
     let currentTimeRange = 60;
     let currentView = 'home';
     let charts = {}; 
     const memoryCache = {};
 
-    // --- Token 設定管理 ---
     function getApiToken() { return localStorage.getItem('finmind_token') || ''; }
     function openSettings() { document.getElementById('apiTokenInput').value = getApiToken(); document.getElementById('settingsModal').classList.remove('view-hidden'); }
     function closeSettings() { document.getElementById('settingsModal').classList.add('view-hidden'); }
@@ -282,7 +289,6 @@
         closeSettings(); alert('設定已儲存！請重新搜尋股票以套用新金鑰。');
     }
 
-    // --- 合規排隊 Fetcher (API Queue Manager) ---
     const delay = ms => new Promise(res => setTimeout(res, ms));
     const ApiQueue = {
         queue: [], isProcessing: false,
@@ -300,12 +306,11 @@
                     if (json.status !== 200) resolve({ error: true, data: [] }); else resolve(json);
                 }
             } catch { resolve({ error: true, data: [] }); }
-            await delay(getApiToken() ? 100 : 800);
+            await delay(getApiToken() ? 100 : 1000);
             this.isProcessing = false; this.process();
         }
     };
 
-    // --- 數學與技術指標演算法 ---
     function calcMA(prices, period) { let ma = []; for (let i = 0; i < prices.length; i++) { if (i < period - 1) ma.push(null); else { let sum = 0; for (let j=0; j<period; j++) sum+=prices[i-j]; ma.push(sum/period); } } return ma; }
     function calcEMA(prices, period) { let ema = new Array(prices.length).fill(null); let k = 2 / (period + 1); if (prices.length < period) return ema; let sum = 0; for (let i=0; i<period; i++) sum += prices[i]; ema[period-1] = sum / period; for (let i = period; i < prices.length; i++) ema[i] = (prices[i] * k) + (ema[i-1] * (1 - k)); return ema; }
     function calcMACD(prices) { const ema12 = calcEMA(prices, 12), ema26 = calcEMA(prices, 26); let dif = new Array(prices.length).fill(null); for(let i=25; i<prices.length; i++) dif[i] = ema12[i] - ema26[i]; let macd = new Array(prices.length).fill(null); let validDif = dif.slice(25); if (validDif.length >= 9) { let ema9_dif = calcEMA(validDif, 9); for(let i=0; i<ema9_dif.length; i++) macd[25+i] = ema9_dif[i]; } let osc = new Array(prices.length).fill(null); for(let i=33; i<prices.length; i++) osc[i] = dif[i] - macd[i]; return { dif, macd, osc }; }
@@ -314,14 +319,135 @@
     function calcRSI(prices, period = 14) { let rsi = new Array(prices.length).fill(null); if (prices.length < period) return rsi; let up = 0, down = 0; for(let i = 1; i <= period; i++) { let diff = prices[i] - prices[i-1]; if(diff > 0) up += diff; else down -= diff; } up /= period; down /= period; rsi[period] = 100 - (100 / (1 + (up / (down || 0.001)))); for (let i = period + 1; i < prices.length; i++) { let diff = prices[i] - prices[i-1]; up = (up * (period - 1) + (diff > 0 ? diff : 0)) / period; down = (down * (period - 1) + (diff < 0 ? -diff : 0)) / period; rsi[i] = 100 - (100 / (1 + (up / (down || 0.001)))); } return rsi; }
     function calcKD(highs, lows, closes, period = 9) { let k = new Array(closes.length).fill(null), d = new Array(closes.length).fill(null); let prevK = 50, prevD = 50; for(let i = period - 1; i < closes.length; i++) { let maxH = Math.max(...highs.slice(i-period+1, i+1)), minL = Math.min(...lows.slice(i-period+1, i+1)); let rsv = maxH === minL ? 50 : ((closes[i] - minL) / (maxH - minL)) * 100; prevK = (2/3) * prevK + (1/3) * rsv; prevD = (2/3) * prevD + (1/3) * prevK; k[i] = prevK; d[i] = prevD; } return {k, d}; }
 
-    // --- Chart.js 初始化 ---
+    // --- 十字游標全局同步引擎 (Crosshair Sync Engine) ---
+    let currentHoverIndex = null;
+    let syncCrosshairRAF = null;
+
+    // 客製化 Chart.js 游標畫線插件
+    const crosshairPlugin = {
+        id: 'crosshair',
+        afterDatasetsDraw: (chart) => {
+            if (chart.tooltip?._active?.length) {
+                const activePoint = chart.tooltip._active[0];
+                const ctx = chart.ctx;
+                const x = activePoint.element.x;
+                const topY = chart.chartArea.top;
+                const bottomY = chart.chartArea.bottom;
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.moveTo(x, topY);
+                ctx.lineTo(x, bottomY);
+                ctx.lineWidth = 1;
+                ctx.strokeStyle = 'rgba(156, 163, 175, 0.6)'; // Tailwind gray-400
+                ctx.setLineDash([4, 4]);
+                ctx.stroke();
+                ctx.restore();
+            }
+        }
+    };
+
+    // 同步觸發器 (更新所有圖表與 HUD 面板)
+    const syncCrosshair = (index) => {
+        if (currentHoverIndex === index) return;
+        currentHoverIndex = index;
+
+        if (syncCrosshairRAF) cancelAnimationFrame(syncCrosshairRAF);
+        syncCrosshairRAF = requestAnimationFrame(() => {
+            // 同步游標到其他所有圖表
+            Object.values(charts).forEach(c => {
+                if (c && c.canvas && c.canvas.offsetParent !== null) { 
+                    if (index !== null) {
+                        c.tooltip.setActiveElements([{ datasetIndex: 0, index: index }], { x: 0, y: 0 });
+                        c.setActiveElements([{ datasetIndex: 0, index: index }]);
+                    } else {
+                        c.tooltip.setActiveElements([], { x: 0, y: 0 });
+                        c.setActiveElements([]);
+                    }
+                    c.update('none'); // 極速刷新模式
+                }
+            });
+            // 同步更新上方比較表(HUD)的數值
+            updateUIByIndex(index);
+        });
+    };
+
+    // HUD 動態數值更新邏輯
+    function updateUIByIndex(idx) {
+        if (!currentSlicedData) return;
+        const d = currentSlicedData;
+        // 如果滑鼠離開(null)，就顯示最新一天(最後一筆)的資料
+        const i = idx === null ? d.dates.length - 1 : idx;
+        
+        const formatColor = (val) => val > 0 ? 'text-up' : (val < 0 ? 'text-down' : 'text-gray-400');
+        const formatSign = (val) => val > 0 ? `+${val}` : val;
+
+        // 更新日期
+        document.getElementById('hoverDate').textContent = d.dates[i] ? `2024-${d.dates[i]}` : '--/--';
+        document.getElementById('hoverDate').classList.remove('hidden');
+
+        // 更新 K線 HUD
+        if(d.ohlc[i]) {
+            const ohlc = d.ohlc[i];
+            document.getElementById('valO').textContent = formatNum(ohlc.o);
+            document.getElementById('valH').textContent = formatNum(ohlc.h);
+            document.getElementById('valL').textContent = formatNum(ohlc.l);
+            document.getElementById('valC').textContent = formatNum(ohlc.c);
+            document.getElementById('valC').className = `font-bold ${ohlc.c >= ohlc.o ? 'text-up' : 'text-down'}`;
+        }
+        document.getElementById('valV').textContent = d.volumes[i] ? formatNum(d.volumes[i]) : '--';
+        document.getElementById('valMA5').textContent = d.ma5[i] ? d.ma5[i].toFixed(2) : '--';
+        document.getElementById('valMA10').textContent = d.ma10[i] ? d.ma10[i].toFixed(2) : '--';
+        document.getElementById('valMA20').textContent = d.ma20[i] ? d.ma20[i].toFixed(2) : '--';
+
+        // 更新指標 HUD
+        document.getElementById('valRSI').textContent = d.rsi[i] ? d.rsi[i].toFixed(1) : '--';
+        document.getElementById('valK').textContent = d.k[i] ? d.k[i].toFixed(1) : '--';
+        document.getElementById('valD').textContent = d.d[i] ? d.d[i].toFixed(1) : '--';
+        
+        document.getElementById('valDIF').textContent = d.macd.dif[i] ? d.macd.dif[i].toFixed(2) : '--';
+        document.getElementById('valMACD').textContent = d.macd.macd[i] ? d.macd.macd[i].toFixed(2) : '--';
+        const osc = d.macd.osc[i];
+        if(osc !== undefined && osc !== null) {
+            document.getElementById('valOSC').textContent = osc.toFixed(2);
+            document.getElementById('valOSC').className = `font-bold ${osc >= 0 ? 'text-up' : 'text-down'}`;
+        }
+
+        document.getElementById('valOBV').textContent = d.obv[i] ? formatNum(d.obv[i]) : '--';
+        document.getElementById('valBBW').textContent = d.bbw[i] ? d.bbw[i].toFixed(2) : '--';
+
+        // 更新籌碼 HUD
+        const setChipVal = (id, val) => {
+            const el = document.getElementById(id);
+            if(!el) return;
+            el.textContent = val !== undefined && val !== null ? formatNum(val) : '--';
+            el.className = `text-sm font-bold ${formatColor(val)}`;
+        };
+        setChipVal('valF', d.chip.f[i]);
+        setChipVal('valT', d.chip.t[i]);
+        setChipVal('valDlr', d.chip.d[i]);
+        setChipVal('valMP', d.chip.mp[i]);
+        setChipVal('valSS', d.chip.ss[i]);
+        setChipVal('valTxOI', d.chip.txOI[i]);
+    }
+
     function initCharts() {
+        Chart.register(crosshairPlugin);
         Chart.defaults.font.family = "'Noto Sans TC', sans-serif"; Chart.defaults.color = '#9CA3AF';
-        const tConf = { backgroundColor: 'rgba(31, 41, 55, 0.95)', titleColor: '#F9FAFB', bodyColor: '#D1D5DB', borderColor: '#4B5563', borderWidth: 1, padding: 10, mode: 'index', intersect: false };
-        const baseOpt = { responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, plugins: { legend: { display: false }, tooltip: tConf } };
+        
+        // 既然有了完美的上方比較表(HUD)，把原本擋視線的 Tooltip 簡化或隱藏
+        const baseOpt = { 
+            responsive: true, maintainAspectRatio: false, 
+            interaction: { mode: 'index', intersect: false }, 
+            plugins: { legend: { display: false }, tooltip: { enabled: false } }, // 關閉預設 tooltip，完全交給我們寫的 HUD
+            onHover: (e, elements) => {
+                if (elements && elements.length > 0) syncCrosshair(elements[0].index);
+                else syncCrosshair(null);
+            }
+        };
         const gridX = { display: false }, gridY = { color: '#374151' };
 
-        charts.main = new Chart(document.getElementById('priceVolChart').getContext('2d'), { type: 'bar', data: { labels: [], datasets: [] }, options: { ...baseOpt, scales: { x: { grid: gridX }, y: { position: 'left', grid: gridY }, y1: { position: 'right', grid: { display: false }, min: 0 } }, plugins: { ...baseOpt.plugins, tooltip: { ...tConf, callbacks: { label: (ctx) => { const id = ctx.dataset.id; if(id === 'kb') return `收: ${formatNum(ctx.raw[1])}`; if(id === 'v') return `量: ${formatNum(ctx.raw)}`; if(id === 'm5') return `5MA: ${formatNum(ctx.raw.toFixed(2))}`; return null; } } } } } });
+        charts.main = new Chart(document.getElementById('priceVolChart').getContext('2d'), { type: 'bar', data: { labels: [], datasets: [] }, options: { ...baseOpt, scales: { x: { grid: gridX }, y: { position: 'left', grid: gridY }, y1: { position: 'right', grid: { display: false }, min: 0 } } } });
         const simpleOpt = { ...baseOpt, scales: { x: { display: false }, y: { grid: gridY } } };
         const cOpt = { ...baseOpt, scales: { x: { display: false }, y: { min: 0, max: 100, ticks: { stepSize: 20 }, grid: gridY } } };
 
@@ -336,6 +462,13 @@
         charts.marginP = new Chart(document.getElementById('marginPurchaseChart'), { type: 'bar', options: simpleOpt });
         charts.shortS = new Chart(document.getElementById('shortSaleChart'), { type: 'bar', options: simpleOpt });
         charts.futuresOi = new Chart(document.getElementById('futuresOiChart'), { type: 'bar', options: simpleOpt });
+
+        // 綁定滑鼠離開圖表區的事件，還原到最新一天
+        Object.values(charts).forEach(c => {
+            if(c && c.canvas) {
+                c.canvas.addEventListener('mouseleave', () => syncCrosshair(null));
+            }
+        });
     }
 
     // --- UI 更新邏輯 ---
@@ -345,33 +478,38 @@
         const sl = Math.min(days, d.prices.length);
         const lastIdx = d.prices.length - 1;
 
+        // 靜態資料卡片
         document.getElementById('stockName').textContent = d.name; document.getElementById('stockTicker').textContent = d.ticker;
         const diff = d.prices[lastIdx] - d.prices[lastIdx-1];
         const color = diff >= 0 ? 'text-up' : 'text-down';
         document.getElementById('currentPrice').textContent = formatNum(d.prices[lastIdx]); document.getElementById('currentPrice').className = `text-5xl font-bold ${color}`;
         document.getElementById('priceChange').textContent = `${diff>=0?'▲':'▼'} ${Math.abs(diff).toFixed(2)}`; document.getElementById('priceChange').className = `text-lg font-semibold ${color}`;
         document.getElementById('percentChange').textContent = `(${diff>=0?'+':''}${(diff/d.prices[lastIdx-1]*100).toFixed(2)}%)`; document.getElementById('percentChange').className = `text-sm font-medium ${color}`;
-        
-        document.getElementById('valRSI').textContent = d.rsi[lastIdx]?.toFixed(1)||'--'; 
-        document.getElementById('valK').textContent = d.k[lastIdx]?.toFixed(1)||'--'; 
-        document.getElementById('valD').textContent = d.d[lastIdx]?.toFixed(1)||'--';
-
-        document.getElementById('fundPE').textContent = d.per ? d.per.toFixed(2) : '--';
-        document.getElementById('fundYield').textContent = d.yield ? d.yield.toFixed(2)+'%' : '--%';
-        document.getElementById('fundPBR').textContent = d.pbr ? d.pbr.toFixed(2)+' 倍' : '--';
+        document.getElementById('fundPE').textContent = d.per ? d.per.toFixed(2) : '--'; document.getElementById('fundYield').textContent = d.yield ? d.yield.toFixed(2)+'%' : '--%'; document.getElementById('fundPBR').textContent = d.pbr ? d.pbr.toFixed(2)+' 倍' : '--';
 
         const slicer = (arr) => arr.slice(-sl);
         const slDate = slicer(d.dates), slP = slicer(d.prices), slVol = slicer(d.volumes), slCol = slicer(d.colors);
         const wicks = slicer(d.ohlc).map(i=>[i.l,i.h]), bodies = slicer(d.ohlc).map(i=>[i.o,i.c]);
+        
+        // 將裁切好的資料存入全域，供給 HUD 即時讀取
+        currentSlicedData = {
+            dates: slDate, prices: slP, volumes: slVol, colors: slCol,
+            ohlc: slicer(d.ohlc), ma5: slicer(d.ma5), ma10: slicer(d.ma10), ma20: slicer(d.ma20),
+            rsi: slicer(d.rsi), k: slicer(d.k), d: slicer(d.d),
+            macd: { dif: slicer(d.macd.dif), macd: slicer(d.macd.macd), osc: slicer(d.macd.osc) },
+            obv: slicer(d.obv), bbw: slicer(d.bbw),
+            chip: { f: slicer(d.chip.f), t: slicer(d.chip.t), d: slicer(d.chip.d), mp: slicer(d.chip.mp), ss: slicer(d.chip.ss), txOI: slicer(d.chip.txOI) }
+        };
+
         const minP = Math.min(...slicer(d.ohlc).map(i=>i.l)), maxP = Math.max(...slicer(d.ohlc).map(i=>i.h));
         charts.main.options.scales.y.min = Math.floor(minP - (maxP-minP)*0.5); charts.main.options.scales.y.max = Math.ceil(maxP + (maxP-minP)*0.1);
         charts.main.options.scales.y1.suggestedMax = Math.max(...slVol)*3.5;
         
         charts.main.data.labels = slDate;
         charts.main.data.datasets = [
-            { id:'m5', type:'line', data:slicer(d.ma5), borderColor:'#EAB308', borderWidth:1.5, pointRadius:0, yAxisID:'y', order:0 },
-            { id:'m10', type:'line', data:slicer(d.ma10), borderColor:'#22D3EE', borderWidth:1.5, pointRadius:0, yAxisID:'y', order:0 },
-            { id:'m20', type:'line', data:slicer(d.ma20), borderColor:'#A855F7', borderWidth:1.5, pointRadius:0, yAxisID:'y', order:0 },
+            { id:'m5', type:'line', data:currentSlicedData.ma5, borderColor:'#EAB308', borderWidth:1.5, pointRadius:0, yAxisID:'y', order:0 },
+            { id:'m10', type:'line', data:currentSlicedData.ma10, borderColor:'#22D3EE', borderWidth:1.5, pointRadius:0, yAxisID:'y', order:0 },
+            { id:'m20', type:'line', data:currentSlicedData.ma20, borderColor:'#A855F7', borderWidth:1.5, pointRadius:0, yAxisID:'y', order:0 },
             { id:'kw', type:'bar', data:wicks, backgroundColor:slCol, barThickness:1, grouped:false, yAxisID:'y', order:2 },
             { id:'kb', type:'bar', data:bodies, backgroundColor:slCol, barPercentage:0.8, categoryPercentage:0.9, grouped:false, yAxisID:'y', order:1 },
             { id:'v', type:'bar', data:slVol, backgroundColor:slCol.map(c=>c+'40'), barPercentage:0.8, categoryPercentage:0.9, grouped:false, yAxisID:'y1', order:3 }
@@ -379,24 +517,53 @@
         charts.main.update();
 
         const lOpt = { borderWidth: 1.5, pointRadius: 0 }; const bOpt = { barPercentage: 0.8, categoryPercentage: 0.9 };
-        charts.rsi.data = { labels: slDate, datasets: [{ data: slicer(d.rsi), borderColor: '#3B82F6', ...lOpt }] }; charts.rsi.update();
-        charts.kd.data = { labels: slDate, datasets: [{ data: slicer(d.k), borderColor: '#F59E0B', ...lOpt }, { data: slicer(d.d), borderColor: '#A855F7', ...lOpt }] }; charts.kd.update();
+        charts.rsi.data = { labels: slDate, datasets: [{ data: currentSlicedData.rsi, borderColor: '#3B82F6', ...lOpt }] }; charts.rsi.update();
+        charts.kd.data = { labels: slDate, datasets: [{ data: currentSlicedData.k, borderColor: '#F59E0B', ...lOpt }, { data: currentSlicedData.d, borderColor: '#A855F7', ...lOpt }] }; charts.kd.update();
         
-        const slOsc = slicer(d.macd.osc);
-        charts.macd.data = { labels: slDate, datasets: [{ type: 'line', data: slicer(d.macd.dif), borderColor: '#60A5FA', borderWidth: 1, pointRadius: 0 }, { type: 'line', data: slicer(d.macd.macd), borderColor: '#F59E0B', borderWidth: 1, pointRadius: 0 }, { type: 'bar', data: slOsc, backgroundColor: slOsc.map(v => v >= 0 ? '#F87171' : '#34D399'), ...bOpt }] }; charts.macd.update();
+        const slOsc = currentSlicedData.macd.osc;
+        charts.macd.data = { labels: slDate, datasets: [{ type: 'line', data: currentSlicedData.macd.dif, borderColor: '#60A5FA', borderWidth: 1, pointRadius: 0 }, { type: 'line', data: currentSlicedData.macd.macd, borderColor: '#F59E0B', borderWidth: 1, pointRadius: 0 }, { type: 'bar', data: slOsc, backgroundColor: slOsc.map(v => v >= 0 ? '#F87171' : '#34D399'), ...bOpt }] }; charts.macd.update();
 
-        charts.obv.data = { labels: slDate, datasets: [{ data: slicer(d.obv), borderColor: '#EAB308', ...lOpt }] }; charts.obv.update();
-        charts.bbw.data = { labels: slDate, datasets: [{ data: slicer(d.bbw), borderColor: '#22D3EE', ...lOpt }] }; charts.bbw.update();
+        charts.obv.data = { labels: slDate, datasets: [{ data: currentSlicedData.obv, borderColor: '#EAB308', ...lOpt }] }; charts.obv.update();
+        charts.bbw.data = { labels: slDate, datasets: [{ data: currentSlicedData.bbw, borderColor: '#22D3EE', ...lOpt }] }; charts.bbw.update();
 
-        const slF = slicer(d.chip.f); charts.foreign.data = { labels: slDate, datasets: [{ data: slF, backgroundColor: slF.map(v => v>0 ? '#F87171':'#34D399'), ...bOpt }] }; charts.foreign.update();
-        const slT = slicer(d.chip.t); charts.trust.data = { labels: slDate, datasets: [{ data: slT, backgroundColor: slT.map(v => v>0 ? '#F87171':'#34D399'), ...bOpt }] }; charts.trust.update();
-        const slD = slicer(d.chip.d); charts.dealer.data = { labels: slDate, datasets: [{ data: slD, backgroundColor: slD.map(v => v>0 ? '#F87171':'#34D399'), ...bOpt }] }; charts.dealer.update();
-        const slMP = slicer(d.chip.mp); charts.marginP.data = { labels: slDate, datasets: [{ data: slMP, backgroundColor: slMP.map(v => v>0 ? '#F87171':'#34D399'), ...bOpt }] }; charts.marginP.update();
-        const slSS = slicer(d.chip.ss); charts.shortS.data = { labels: slDate, datasets: [{ data: slSS, backgroundColor: slSS.map(v => v>0 ? '#34D399':'#F87171'), ...bOpt }] }; charts.shortS.update(); 
-        const slTxOI = slicer(d.chip.txOI); charts.futuresOi.data = { labels: slDate, datasets: [{ data: slTxOI, backgroundColor: slTxOI.map(v => v>0 ? '#F87171':'#34D399'), ...bOpt }] }; charts.futuresOi.update();
+        charts.foreign.data = { labels: slDate, datasets: [{ data: currentSlicedData.chip.f, backgroundColor: currentSlicedData.chip.f.map(v => v>0 ? '#F87171':'#34D399'), ...bOpt }] }; charts.foreign.update();
+        charts.trust.data = { labels: slDate, datasets: [{ data: currentSlicedData.chip.t, backgroundColor: currentSlicedData.chip.t.map(v => v>0 ? '#F87171':'#34D399'), ...bOpt }] }; charts.trust.update();
+        charts.dealer.data = { labels: slDate, datasets: [{ data: currentSlicedData.chip.d, backgroundColor: currentSlicedData.chip.d.map(v => v>0 ? '#F87171':'#34D399'), ...bOpt }] }; charts.dealer.update();
+        charts.marginP.data = { labels: slDate, datasets: [{ data: currentSlicedData.chip.mp, backgroundColor: currentSlicedData.chip.mp.map(v => v>0 ? '#F87171':'#34D399'), ...bOpt }] }; charts.marginP.update();
+        charts.shortS.data = { labels: slDate, datasets: [{ data: currentSlicedData.chip.ss, backgroundColor: currentSlicedData.chip.ss.map(v => v>0 ? '#34D399':'#F87171'), ...bOpt }] }; charts.shortS.update(); 
+        charts.futuresOi.data = { labels: slDate, datasets: [{ data: currentSlicedData.chip.txOI, backgroundColor: currentSlicedData.chip.txOI.map(v => v>0 ? '#F87171':'#34D399'), ...bOpt }] }; charts.futuresOi.update();
+
+        // 初始載入時顯示最後一天的 HUD
+        updateUIByIndex(null);
     }
 
     // --- 抓取真實資料核心 ---
+    function loadMockData(stockId) {
+        const days = 250; const startPrice = stockId === '2330' ? 850 : (stockId === '2317' ? 150 : 500); 
+        const fullDates = [], dates = [], prices = [], highs = [], lows = [], ohlc = [], volumes = [], colors = [];
+        let currPrice = startPrice; let d = new Date(); d.setDate(d.getDate() - days * 1.5);
+        for (let i = 0; i < days; i++) {
+            d.setDate(d.getDate() + 1); if(d.getDay() === 0 || d.getDay() === 6) continue;
+            fullDates.push(d.toISOString().split('T')[0]); dates.push(`${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`);
+            let change = (Math.random() - 0.5) * 0.03 + 0.001; let o = currPrice, c = o * (1 + change), h = Math.max(o, c) * (1 + Math.random() * 0.015), l = Math.min(o, c) * (1 - Math.random() * 0.015);
+            o = parseFloat(o.toFixed(2)); h = parseFloat(h.toFixed(2)); l = parseFloat(l.toFixed(2)); c = parseFloat(c.toFixed(2));
+            ohlc.push({ o, h, l, c }); prices.push(c); highs.push(h); lows.push(l); colors.push(c >= o ? '#F87171' : '#34D399');
+            volumes.push(Math.floor((startPrice > 500 ? 20 : 150) * (1 + (Math.random() - 0.5) * 0.8) + (Math.abs(change) * 1000))); currPrice = c;
+        }
+        const rsi = calcRSI(prices), kd = calcKD(highs, lows, prices), macd = calcMACD(prices), obv = calcOBV(prices, volumes), bbw = calcBBW(prices);
+        let f=[], t=[], dlr=[], mp=[], ss=[], txOI=[]; let oi = -15000;
+        for(let i=0; i<dates.length; i++) {
+            f.push(Math.floor((Math.random()-0.5)*5000)); t.push(Math.floor((Math.random()-0.5)*1000)); dlr.push(Math.floor((Math.random()-0.5)*800));
+            mp.push(Math.floor((Math.random()-0.5)*3000)); ss.push(Math.floor((Math.random()-0.5)*500));
+            oi += (Math.random()-0.5)*4000; if (oi > 15000) oi = 15000; if (oi < -35000) oi = -35000; txOI.push(Math.floor(oi));
+        }
+        globalStockData = {
+            ticker: stockId, name: stockNames[stockId] || `${stockId} (測試數據)`, fullDates, dates, prices, ohlc, volumes, colors,
+            rsi, k: kd.k, d: kd.d, ma5: calcMA(prices, 5), ma10: calcMA(prices, 10), ma20: calcMA(prices, 20), macd, obv, bbw, chip: { f, t, d:dlr, mp, ss, txOI }
+        };
+        document.getElementById('fundPE').textContent = (15 + Math.random()*10).toFixed(2); document.getElementById('fundYield').textContent = (2 + Math.random()*4).toFixed(2) + '%'; document.getElementById('fundPBR').textContent = (1.5 + Math.random()*3).toFixed(2) + ' 倍';
+    }
+
     async function fetchRealStockData(stockId) {
         currentStockId = stockId;
         const msgDiv = document.getElementById('statusMsg'), icon = document.getElementById('statusIcon'), text = document.getElementById('statusText'), homeView = document.getElementById('view-home');
@@ -417,7 +584,6 @@
 
         const eD = new Date().toISOString().split('T')[0], sD = new Date(Date.now() - 365*24*60*60*1000).toISOString().split('T')[0];
         try {
-            // 第 1 步：取得股價
             const dataPrice = await ApiQueue.add(`https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockPrice&data_id=${stockId}&start_date=${sD}&end_date=${eD}`);
             if (dataPrice.error || !dataPrice.data || !dataPrice.data.length) throw new Error("無股價資料");
 
@@ -433,74 +599,61 @@
             
             let isInstMocked = false, isMarginMocked = false, isFuturesMocked = false;
 
-            // 第 2 步：將附屬資料推入 Queue (修正期指代碼為 'TX')
             const [dataInst, dataMargin, dataFutures] = await Promise.all([
                 ApiQueue.add(`https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockInstitutionalInvestorsBuySell&data_id=${stockId}&start_date=${sD}&end_date=${eD}`),
                 ApiQueue.add(`https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockMarginPurchaseShortSale&data_id=${stockId}&start_date=${sD}&end_date=${eD}`),
                 ApiQueue.add(`https://api.finmindtrade.com/api/v4/data?dataset=TaiwanFuturesInstitutionalInvestors&data_id=TX&start_date=${sD}&end_date=${eD}`)
             ]);
 
-            // 安全解析：三大法人
-            let hasInstData = false;
-            if(!dataInst.error && dataInst.data && dataInst.data.length > 0) {
+            let instValidCount = 0, marginValidCount = 0, futuresValidCount = 0;
+
+            if(!dataInst.error && dataInst.data) {
                 dataInst.data.forEach(item => {
                     const idx = fullDates.indexOf(item.date.split(' ')[0]);
                     if(idx !== -1) {
                         const net = Math.round((item.buy - item.sell)/1000); const nameStr = item.name || '';
-                        if(nameStr.includes('外資') || nameStr.includes('Foreign')) { f[idx] += net; hasInstData = true; }
-                        if(nameStr.includes('投信') || nameStr.includes('Trust')) { t[idx] += net; hasInstData = true; }
-                        if(nameStr.includes('自營商') || nameStr.includes('Dealer')) { d[idx] += net; hasInstData = true; }
+                        if(nameStr.includes('外資') || nameStr.includes('Foreign')) { f[idx] += net; instValidCount++; }
+                        if(nameStr.includes('投信') || nameStr.includes('Trust')) { t[idx] += net; instValidCount++; }
+                        if(nameStr.includes('自營商') || nameStr.includes('Dealer')) { d[idx] += net; instValidCount++; }
                     }
                 });
-            }
-            if (!hasInstData) {
+            } 
+            if(instValidCount === 0) {
                 isInstMocked = true;
                 for(let i=0; i<dates.length; i++) { f[i] = Math.floor((Math.random()-0.5)*5000); t[i] = Math.floor((Math.random()-0.5)*1000); d[i] = Math.floor((Math.random()-0.5)*800); }
             }
 
-            // 安全解析：融資券
-            let hasMarginData = false;
-            if(!dataMargin.error && dataMargin.data && dataMargin.data.length > 0) {
+            if(!dataMargin.error && dataMargin.data) {
                 dataMargin.data.forEach(item => {
                     const idx = fullDates.indexOf(item.date.split(' ')[0]);
                     if(idx !== -1) {
                         mp[idx] = Math.round(item.MarginPurchaseTodayBalance - item.MarginPurchaseYesterdayBalance);
                         ss[idx] = Math.round(item.ShortSaleTodayBalance - item.ShortSaleYesterdayBalance);
-                        hasMarginData = true;
+                        marginValidCount++;
                     }
                 });
-            }
-            if (!hasMarginData) {
+            } 
+            if(marginValidCount === 0) {
                 isMarginMocked = true;
                 for(let i=0; i<dates.length; i++) { mp[i] = Math.floor((Math.random()-0.5)*3000); ss[i] = Math.floor((Math.random()-0.5)*500); }
             }
 
-            // 安全解析：期貨大盤 (TX)
-            let hasFuturesData = false;
-            if(!dataFutures.error && dataFutures.data && dataFutures.data.length > 0) {
+            if(!dataFutures.error && dataFutures.data) {
                 dataFutures.data.forEach(item => {
                     const idx = fullDates.indexOf(item.date.split(' ')[0]);
                     if(idx !== -1) {
                         const nameStr = item.name || '';
                         if(nameStr.includes('外資') || nameStr.includes('Foreign')) {
-                            let netOI = 0;
-                            if (item.open_interest_net_volume !== undefined) netOI = item.open_interest_net_volume;
-                            else if (item.long_open_interest !== undefined) netOI = item.long_open_interest - (item.short_open_interest||0);
-                            
-                            txOI[idx] = netOI;
-                            if (netOI !== 0) hasFuturesData = true; // 只要有非零數據就認定解析成功
+                            txOI[idx] = item.open_interest_net_volume !== undefined ? item.open_interest_net_volume : ((item.long_open_interest - item.short_open_interest) || 0);
+                            if(txOI[idx] !== 0) futuresValidCount++;
                         }
                     }
                 });
-            }
-            if (!hasFuturesData) {
+            } 
+            if(futuresValidCount === 0) {
                 isFuturesMocked = true;
                 let oi = -15000;
-                for(let i=0; i<dates.length; i++) {
-                    oi += (Math.random()-0.5)*4000;
-                    if(oi > 15000) oi = 15000; if(oi < -35000) oi = -35000;
-                    txOI[i] = Math.floor(oi);
-                }
+                for(let i=0; i<dates.length; i++) { oi += (Math.random()-0.5)*4000; if(oi > 15000) oi = 15000; if(oi < -35000) oi = -35000; txOI[i] = Math.floor(oi); }
             }
 
             const rsi = calcRSI(prices), kd = calcKD(highs, lows, prices), macd = calcMACD(prices), obv = calcOBV(prices, volumes), bbw = calcBBW(prices);
@@ -512,16 +665,7 @@
             };
             
             document.getElementById('priceSource').textContent = "歷史資料 (收盤)";
-            try {
-                const yRes = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(`https://query1.finance.yahoo.com/v8/finance/chart/${stockId}.TW?interval=1d&range=1d`)}`);
-                const yJson = JSON.parse((await yRes.json()).contents);
-                if (yJson.chart.result[0].meta?.regularMarketPrice) {
-                    globalStockData.prices[globalStockData.prices.length-1] = yJson.chart.result[0].meta.regularMarketPrice;
-                    document.getElementById('priceSource').innerHTML = "<span class='text-blue-400'>Yahoo 即時報價 (延遲約15分)</span>";
-                }
-            } catch(e) {}
-
-            // 第 3 步：非同步載入基本面與新聞 (使用安全的 FinMind Queue)
+            
             const shortSD = new Date(Date.now() - 30*24*60*60*1000).toISOString().split('T')[0];
             ApiQueue.add(`https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockPER&data_id=${stockId}&start_date=${shortSD}&end_date=${eD}`).then(res => {
                 if(!res.error && res.data && res.data.length>0) {
@@ -531,22 +675,20 @@
                 }
             });
 
+            // 使用 FinMind Queue 安全抓取新聞
             ApiQueue.add(`https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockNews&data_id=${stockId}&start_date=${shortSD}&end_date=${eD}`).then(res => {
                 const ul = document.getElementById('newsList');
                 let html = '';
                 if(!res.error && res.data && res.data.length>0) {
-                    html = res.data.reverse().slice(0,5).map(n => `<li class="py-2 border-b border-gray-700 last:border-0 hover:bg-gray-700/50"><a href="${n.link}" target="_blank" class="flex flex-col gap-1"><div class="flex items-center gap-2"><span class="text-[10px] text-gray-500 font-mono">${n.date.substring(5,10)}</span><span class="text-[10px] bg-blue-900/40 text-blue-400 px-1.5 rounded">${n.source}</span></div><span class="text-sm text-gray-300 line-clamp-2">${n.title}</span></a></li>`).join('');
+                    html = res.data.reverse().slice(0,5).map(n => `<li class="py-2 border-b border-gray-700 last:border-0 hover:bg-gray-700/50"><a href="${n.link}" target="_blank" class="flex flex-col gap-1"><div class="flex items-center gap-2"><span class="text-[10px] text-gray-500 font-mono">${n.date.substring(5,10)}</span><span class="text-[10px] bg-blue-900/40 text-blue-400 px-1.5 rounded">${n.source}</span></div><span class="text-sm text-gray-300 line-clamp-1">${n.title}</span></a></li>`).join('');
                 } else {
                     html = `<li class="py-4 text-sm text-gray-500 text-center">近期無重大新聞</li>`;
                 }
 
-                // 動態插入流量限制警告
                 let warnings = [];
-                if (isInstMocked) warnings.push('三大法人'); 
-                if (isMarginMocked) warnings.push('信用交易'); 
-                if (isFuturesMocked) warnings.push('期指風向');
+                if (isInstMocked) warnings.push('法人'); if (isMarginMocked) warnings.push('信用'); if (isFuturesMocked) warnings.push('期指');
                 if (warnings.length > 0) {
-                    html = `<li class="py-2 border-b border-gray-700 bg-yellow-900/20 px-2 rounded mb-2"><span class="text-sm font-bold text-yellow-500 flex items-center gap-1">⚠️ <span>因未綁定金鑰觸發API限流，【${warnings.join('、')}】圖表已啟動模擬機制防呆。請設定 Token 解除限制。</span></span></li>` + html;
+                    html = `<li class="py-2 border-b border-gray-700 bg-yellow-900/20 px-2 rounded mb-2"><span class="text-sm font-bold text-yellow-500 flex items-center gap-1">⚠️ <span>因未綁定金鑰觸發API限流，【${warnings.join('、')}】圖表已啟動防呆模擬。請設定 Token。</span></span></li>` + html;
                 }
                 ul.innerHTML = html;
             });
@@ -555,8 +697,11 @@
             msgDiv.classList.add('hidden'); homeView.classList.remove('opacity-0');
             updateDashboardUI(currentTimeRange);
         } catch (e) {
-            text.textContent = '獲取股價失敗，請確認代碼正確或稍後再試。'; icon.className = 'text-xl'; icon.textContent = '⚠️';
+            text.textContent = '獲取股價失敗，已暫時轉為測試模式。'; icon.className = 'text-xl'; icon.textContent = '⚠️';
             msgDiv.className = 'mb-4 p-3 bg-red-900/30 border border-red-800 text-red-400 rounded-lg text-sm flex justify-center gap-2 font-bold';
+            loadMockData(stockId);
+            homeView.classList.remove('opacity-0');
+            updateDashboardUI(currentTimeRange);
         }
         updateFollowBtnUI();
     }
