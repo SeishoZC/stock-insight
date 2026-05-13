@@ -159,7 +159,7 @@
                     <button class="tab-btn active px-4 py-3 text-sm text-gray-400 transition-colors" onclick="switchDataTab('tab-common', this)">📌 常用指標</button>
                     <button class="tab-btn px-4 py-3 text-sm text-gray-400 hover:text-gray-200 transition-colors" onclick="switchDataTab('tab-tech', this)">📊 技術分析</button>
                     <button class="tab-btn px-4 py-3 text-sm text-gray-400 hover:text-gray-200 transition-colors" onclick="switchDataTab('tab-inst', this)">🏢 三大法人</button>
-                    <button class="tab-btn px-4 py-3 text-sm text-gray-400 hover:text-gray-200 transition-colors" onclick="switchDataTab('tab-margin', this)">🏦 信用交易</button>
+                    <button class="tab-btn px-4 py-3 text-sm text-gray-400 hover:text-gray-200 transition-colors" onclick="switchDataTab('tab-margin', this)">🏦 信用交易(散戶)</button>
                     <button class="tab-btn px-4 py-3 text-sm text-gray-400 hover:text-gray-200 transition-colors" onclick="switchDataTab('tab-futures', this)">🌪️ 期指風向</button>
                 </div>
 
@@ -226,29 +226,29 @@
                         </div>
                     </div>
 
-                    <!-- Tab 3: 三大法人 -->
-                    <div id="tab-inst" class="data-tab view-hidden grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div>
+                    <!-- Tab 3: 三大法人 (垂直堆疊) -->
+                    <div id="tab-inst" class="data-tab view-hidden flex flex-col gap-6">
+                        <div class="w-full">
                             <div class="mb-2 flex justify-between items-center"><h3 class="text-sm font-bold text-gray-300">外資買賣超 (張)</h3><span id="valF" class="text-sm font-bold">--</span></div>
                             <div class="chart-container chart-sub"><canvas id="foreignChart"></canvas></div>
                         </div>
-                        <div>
+                        <div class="w-full">
                             <div class="mb-2 flex justify-between items-center"><h3 class="text-sm font-bold text-gray-300">投信買賣超 (張)</h3><span id="valT" class="text-sm font-bold">--</span></div>
                             <div class="chart-container chart-sub"><canvas id="trustChart"></canvas></div>
                         </div>
-                        <div class="lg:col-span-2">
+                        <div class="w-full">
                             <div class="mb-2 flex justify-between items-center"><h3 class="text-sm font-bold text-gray-300">自營商買賣超 (張)</h3><span id="valDlr" class="text-sm font-bold">--</span></div>
                             <div class="chart-container chart-sub"><canvas id="dealerChart"></canvas></div>
                         </div>
                     </div>
                     
-                    <!-- Tab 4: 信用交易 -->
-                    <div id="tab-margin" class="data-tab view-hidden grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div>
+                    <!-- Tab 4: 信用交易 (垂直堆疊) -->
+                    <div id="tab-margin" class="data-tab view-hidden flex flex-col gap-6">
+                        <div class="w-full">
                             <div class="mb-2 flex justify-between items-center"><h3 class="text-sm font-bold text-gray-300">融資餘額增減 (張)</h3><span id="valMP" class="text-sm font-bold">--</span></div>
                             <div class="chart-container chart-sub"><canvas id="marginPurchaseChart"></canvas></div>
                         </div>
-                        <div>
+                        <div class="w-full">
                             <div class="mb-2 flex justify-between items-center"><h3 class="text-sm font-bold text-gray-300">融券餘額增減 (張)</h3><span id="valSS" class="text-sm font-bold">--</span></div>
                             <div class="chart-container chart-sub"><canvas id="shortSaleChart"></canvas></div>
                         </div>
@@ -304,6 +304,7 @@
 </div>
 
 <script>
+    // --- 字典庫與設定 ---
     const stockNames = { "2330":"台積電", "2317":"鴻海", "2454":"聯發科", "2308":"台達電", "2382":"廣達", "2603":"長榮", "2881":"富邦金", "0050":"元大台灣50" };
     const stockSectors = { "2330":"半導體", "2317":"其他電子", "2454":"半導體", "2308":"電子零組", "2382":"電腦週邊", "2603":"航運業", "2881":"金融", "0050":"ETF" };
     const formatNum = (num) => num || num === 0 ? num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") : '--';
