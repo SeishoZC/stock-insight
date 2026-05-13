@@ -165,17 +165,17 @@
 
                 <div class="p-4 sm:p-5">
                     <!-- Tab 1: 常用 -->
-                    <div id="tab-common" class="data-tab grid grid-cols-1 lg:grid-cols-2 gap-6">
-                        <div>
-                            <div class="mb-2 flex justify-between items-center"><h3 class="text-sm font-bold text-gray-300">RSI (14日)</h3><span id="valRSI" class="text-blue-400 font-bold">--</span></div>
+                    <div id="tab-common" class="data-tab flex flex-col gap-6">
+                        <div class="w-full">
+                            <div class="mb-2 flex justify-between items-center"><h3 class="text-sm font-bold text-gray-300">RSI 相對強弱指標 (14日)</h3><span id="valRSI" class="text-blue-400 font-bold">--</span></div>
                             <div class="chart-container chart-sub"><canvas id="rsiChart"></canvas></div>
                         </div>
-                        <div>
-                            <div class="mb-2 flex justify-between items-center"><h3 class="text-sm font-bold text-gray-300">KD (9日)</h3><div class="text-sm"><span class="text-yellow-500 font-bold">K: <span id="valK">--</span></span> <span class="text-purple-500 font-bold ml-2">D: <span id="valD">--</span></span></div></div>
+                        <div class="w-full">
+                            <div class="mb-2 flex justify-between items-center"><h3 class="text-sm font-bold text-gray-300">KD 隨機指標 (9日)</h3><div class="text-sm"><span class="text-yellow-500 font-bold">K: <span id="valK">--</span></span> <span class="text-purple-500 font-bold ml-2">D: <span id="valD">--</span></span></div></div>
                             <div class="chart-container chart-sub"><canvas id="kdChart"></canvas></div>
                         </div>
                     </div>
-                    
+                    <!-- Tab 2: 技術分析 -->
                     <!-- Tab 2: 技術分析 (垂直堆疊版面) -->
                     <div id="tab-tech" class="data-tab view-hidden flex flex-col gap-6">
                         <!-- MACD -->
@@ -310,7 +310,7 @@
     const formatNum = (num) => num || num === 0 ? num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",") : '--';
 
     let globalStockData = null; 
-    let currentSlicedData = null; // 儲存當前顯示區間的切片資料 (供 HUD 同步使用)
+    let currentSlicedData = null; 
     let currentStockId = '';
     let currentTimeRange = 60;
     let currentView = 'home';
@@ -358,7 +358,6 @@
     function calcKD(highs, lows, closes, period = 9) { let k = new Array(closes.length).fill(null), d = new Array(closes.length).fill(null); let prevK = 50, prevD = 50; for(let i = period - 1; i < closes.length; i++) { let maxH = Math.max(...highs.slice(i-period+1, i+1)), minL = Math.min(...lows.slice(i-period+1, i+1)); let rsv = maxH === minL ? 50 : ((closes[i] - minL) / (maxH - minL)) * 100; prevK = (2/3) * prevK + (1/3) * rsv; prevD = (2/3) * prevD + (1/3) * prevK; k[i] = prevK; d[i] = prevD; } return {k, d}; }
 
     // --- 十字游標全局同步引擎 (Crosshair Sync Engine) ---
-    // 重寫十字游標插件：支援「完整十字線」與「Y軸動態價格標籤」
     let currentHoverIndex = null;
     let syncCrosshairRAF = null;
     let mouseCoordinates = { x: null, y: null, activeChartId: null };
@@ -370,9 +369,9 @@
             if (activeElements && activeElements.length > 0) {
                 const ctx = chart.ctx;
                 const activePoint = activeElements[0];
-                // 追蹤實際滑鼠 X 座標，如果沒有滑鼠座標 (例如是被其他圖表同步過來的)，則使用資料點的 X
-                const x = (mouseCoordinates.activeChartId === chart.canvas.id && mouseCoordinates.x !== null) 
-                            ? mouseCoordinates.x : activePoint.element.x;
+                
+                // 強制垂直線精準對齊資料點的 X 座標 (解決左右間距不等的對齊問題)
+                const x = activePoint.element.x;
                 
                 const topY = chart.chartArea.top;
                 const bottomY = chart.chartArea.bottom;
@@ -381,45 +380,56 @@
 
                 ctx.save();
                 ctx.lineWidth = 1;
-                ctx.strokeStyle = 'rgba(156, 163, 175, 0.6)'; // Tailwind gray-400
+                ctx.strokeStyle = 'rgba(156, 163, 175, 0.8)'; // 灰線
                 ctx.setLineDash([4, 4]);
 
-                // 畫垂直線 (所有圖表都有)
+                // 畫垂直線 (全局同步)
                 ctx.beginPath();
                 ctx.moveTo(x, topY);
                 ctx.lineTo(x, bottomY);
                 ctx.stroke();
 
-                // 畫水平線與 Y 軸標籤 (僅限當前滑鼠懸浮的圖表)
+                // 畫水平線與 Y 軸價格標籤 (僅限當下互動的圖表)
                 if (mouseCoordinates.activeChartId === chart.canvas.id && mouseCoordinates.y !== null) {
                     const y = mouseCoordinates.y;
                     
-                    // 確保水平線不出界
                     if (y >= topY && y <= bottomY) {
                         ctx.beginPath();
                         ctx.moveTo(leftX, y);
                         ctx.lineTo(rightX, y);
                         ctx.stroke();
 
-                        // 繪製 Y 軸右側的價格/數值標籤
-                        const yValue = chart.scales.y.getValueForPixel(y);
+                        // 判斷當前是主圖還是副圖，取對應的 scale
+                        const isMainChart = chart.canvas.id === 'priceVolChart';
+                        const scale = chart.scales.y; // 我們已統一將所有主要的價格/數值軸設為 'y'
+                        const yValue = scale.getValueForPixel(y);
+
                         if (yValue !== undefined) {
-                            const labelText = Number.isInteger(yValue) ? yValue.toString() : yValue.toFixed(2);
-                            ctx.font = '10px Arial';
+                            let labelText = '';
+                            if (Math.abs(yValue) > 10000) {
+                                labelText = Math.round(yValue).toLocaleString();
+                            } else {
+                                labelText = Number.isInteger(yValue) ? yValue.toString() : yValue.toFixed(2);
+                            }
+
+                            ctx.font = 'bold 11px Arial';
                             const textWidth = ctx.measureText(labelText).width;
-                            const labelPadding = 4;
-                            const rectWidth = textWidth + labelPadding * 2;
-                            const rectHeight = 16;
+                            const labelPadding = 8;
+                            const rectWidth = Math.max(textWidth + labelPadding * 2, 45);
+                            const rectHeight = 22;
                             
-                            // 標籤背景 (深藍色)
-                            ctx.fillStyle = '#1E3A8A'; // bg-blue-900
-                            ctx.fillRect(rightX, y - rectHeight / 2, rectWidth, rectHeight);
+                            // 主圖的股價軸在左邊，其他所有副圖的數值軸在右邊
+                            const rectX = isMainChart ? leftX - rectWidth : rightX;
                             
-                            // 標籤文字 (白色)
+                            // 畫標籤背景
+                            ctx.fillStyle = isMainChart ? '#DC2626' : '#2563EB'; // 主圖紅底，副圖藍底
+                            ctx.fillRect(rectX, y - rectHeight / 2, rectWidth, rectHeight);
+                            
+                            // 畫標籤文字
                             ctx.fillStyle = '#FFFFFF';
                             ctx.textAlign = 'center';
                             ctx.textBaseline = 'middle';
-                            ctx.fillText(labelText, rightX + rectWidth / 2, y);
+                            ctx.fillText(labelText, rectX + rectWidth / 2, y);
                         }
                     }
                 }
@@ -445,18 +455,16 @@
 
         if (syncCrosshairRAF) cancelAnimationFrame(syncCrosshairRAF);
         syncCrosshairRAF = requestAnimationFrame(() => {
-            // 同步游標到其他所有圖表
             Object.values(charts).forEach(c => {
-                if (c && c.canvas && c.canvas.offsetParent !== null) { // 只更新可見圖表
+                if (c && c.canvas && c.canvas.offsetParent !== null) {
                     if (index !== null) {
                         c.setActiveElements([{ datasetIndex: 0, index: index }]);
                     } else {
                         c.setActiveElements([]);
                     }
-                    c.update('none'); // 極速刷新模式
+                    c.update('none');
                 }
             });
-            // 同步更新所有圖表上方的 HUD 比較表
             updateUIByIndex(index);
         });
     };
@@ -465,11 +473,10 @@
     function updateUIByIndex(idx) {
         if (!currentSlicedData) return;
         const d = currentSlicedData;
-        const i = idx === null ? d.dates.length - 1 : idx; // 若無 Hover 則顯示最後一天
+        const i = idx === null ? d.dates.length - 1 : idx; 
         
         const formatColor = (val) => val > 0 ? 'text-up' : (val < 0 ? 'text-down' : 'text-gray-400');
 
-        // K線 HUD
         document.getElementById('hoverDate').textContent = d.dates[i] ? `2024-${d.dates[i]}` : '--/--';
         document.getElementById('hoverDate').classList.remove('hidden');
         if(d.ohlc[i]) {
@@ -485,7 +492,6 @@
         document.getElementById('valMA10').textContent = d.ma10[i] ? d.ma10[i].toFixed(2) : '--';
         document.getElementById('valMA20').textContent = d.ma20[i] ? d.ma20[i].toFixed(2) : '--';
 
-        // 指標 HUD
         document.getElementById('valRSI').textContent = d.rsi[i] ? d.rsi[i].toFixed(1) : '--';
         document.getElementById('valK').textContent = d.k[i] ? d.k[i].toFixed(1) : '--';
         document.getElementById('valD').textContent = d.d[i] ? d.d[i].toFixed(1) : '--';
@@ -505,7 +511,6 @@
         document.getElementById('valBBW').textContent = d.bbw[i] ? d.bbw[i].toFixed(2) : '--';
         document.getElementById('valBBW3').textContent = d.bbw3[i] ? d.bbw3[i].toFixed(2) : '--';
 
-        // 籌碼 HUD
         const setChipVal = (id, val) => {
             const el = document.getElementById(id);
             if(!el) return;
@@ -520,33 +525,53 @@
         setChipVal('valTxOI', d.chip.txOI[i]);
     }
 
-    // --- Chart.js 初始化 ---
+    // --- Chart.js 初始化與 100% 對齊設計 ---
     function initCharts() {
         Chart.register(fullCrosshairPlugin);
-        Chart.defaults.font.family = "'Noto Sans TC', sans-serif"; Chart.defaults.color = '#9CA3AF';
+        Chart.defaults.font.family = "'Noto Sans TC', sans-serif"; 
+        Chart.defaults.color = '#9CA3AF';
         
-        // 隱藏原生 Tooltip，改用我們上方的 HUD，並綁定十字游標追蹤
         const baseOpt = { 
             responsive: true, maintainAspectRatio: false, 
             interaction: { mode: 'index', intersect: false }, 
-            plugins: { legend: { display: false }, tooltip: { enabled: false } },
+            plugins: { legend: { display: false }, tooltip: { enabled: false } }, // 關閉 Tooltip
             onHover: (e, elements, chart) => {
                 if (elements && elements.length > 0) syncCrosshair(elements[0].index, chart.canvas.id, e);
                 else syncCrosshair(null, null, null);
             }
         };
         
-        // 為了讓 Y 軸的價格標籤有空間顯示，稍微調整右側 padding
-        const gridX = { display: false }, gridY = { color: '#374151' };
-        const layoutOpt = { padding: { right: 40 } };
+        // 【核心解法】強制規定左右 Y 軸的寬度，保證所有圖表的繪圖區間 (chartArea) 完全一致
+        const axisWidth = 65; 
+        const enforceLeftWidth = (axis) => { axis.width = axisWidth; };
+        const enforceRightWidth = (axis) => { axis.width = axisWidth; };
 
+        const gridX = { display: false }, gridY = { color: '#374151' };
+        const layoutOpt = { padding: { left: 0, right: 0, top: 10, bottom: 5 } };
+
+        // 主圖表 (K線)：價格在左，成交量在右
         charts.main = new Chart(document.getElementById('priceVolChart').getContext('2d'), { 
             type: 'bar', data: { labels: [], datasets: [] }, 
-            options: { ...baseOpt, layout: layoutOpt, scales: { x: { grid: gridX }, y: { position: 'left', grid: gridY }, y1: { position: 'right', grid: { display: false }, min: 0 } } } 
+            options: { 
+                ...baseOpt, 
+                layout: layoutOpt, 
+                scales: { 
+                    x: { grid: gridX }, 
+                    y: { position: 'left', grid: gridY, afterFit: enforceLeftWidth }, 
+                    y1: { position: 'right', grid: { display: false }, min: 0, afterFit: enforceRightWidth } 
+                } 
+            } 
         });
         
-        const simpleOpt = { ...baseOpt, layout: layoutOpt, scales: { x: { display: false }, y: { grid: gridY, position: 'right' } } };
-        const cOpt = { ...baseOpt, layout: layoutOpt, scales: { x: { display: false }, y: { min: 0, max: 100, ticks: { stepSize: 20 }, grid: gridY, position: 'right' } } };
+        // 副圖表通用設定：左側放入隱形軸佔位對齊，右側顯示真實數值
+        const subScales = {
+            x: { display: false },
+            yLeft: { position: 'left', display: true, grid: { display: false, drawBorder: false }, ticks: { display: false }, afterFit: enforceLeftWidth },
+            y: { position: 'right', grid: gridY, afterFit: enforceRightWidth }
+        };
+
+        const simpleOpt = { ...baseOpt, layout: layoutOpt, scales: subScales };
+        const cOpt = { ...baseOpt, layout: layoutOpt, scales: { ...subScales, y: { ...subScales.y, min: 0, max: 100, ticks: { stepSize: 20 } } } };
 
         charts.rsi = new Chart(document.getElementById('rsiChart'), { type: 'line', options: cOpt });
         charts.kd = new Chart(document.getElementById('kdChart'), { type: 'line', options: cOpt });
@@ -563,7 +588,6 @@
 
         charts.futuresOi = new Chart(document.getElementById('futuresOiChart'), { type: 'bar', options: simpleOpt });
 
-        // 綁定滑鼠離開圖表區事件
         Object.values(charts).forEach(c => {
             if(c && c.canvas) {
                 c.canvas.addEventListener('mouseleave', () => syncCrosshair(null, null, null));
@@ -578,16 +602,15 @@
         const sl = Math.min(days, d.prices.length);
         const lastIdx = d.prices.length - 1;
 
-        // 靜態資料面板
         document.getElementById('stockName').textContent = d.name; document.getElementById('stockTicker').textContent = d.ticker;
         const diff = d.prices[lastIdx] - d.prices[lastIdx-1];
         const color = diff >= 0 ? 'text-up' : 'text-down';
         document.getElementById('currentPrice').textContent = formatNum(d.prices[lastIdx]); document.getElementById('currentPrice').className = `text-5xl font-bold ${color}`;
         document.getElementById('priceChange').textContent = `${diff>=0?'▲':'▼'} ${Math.abs(diff).toFixed(2)}`; document.getElementById('priceChange').className = `text-lg font-semibold ${color}`;
         document.getElementById('percentChange').textContent = `(${diff>=0?'+':''}${(diff/d.prices[lastIdx-1]*100).toFixed(2)}%)`; document.getElementById('percentChange').className = `text-sm font-medium ${color}`;
+        
         document.getElementById('fundPE').textContent = d.per ? d.per.toFixed(2) : '--'; document.getElementById('fundYield').textContent = d.yield ? d.yield.toFixed(2)+'%' : '--%'; document.getElementById('fundPBR').textContent = d.pbr ? d.pbr.toFixed(2)+' 倍' : '--';
 
-        // 準備切片資料供圖表與 HUD 使用
         const slicer = (arr) => arr.slice(-sl);
         currentSlicedData = {
             dates: slicer(d.dates), prices: slicer(d.prices), volumes: slicer(d.volumes), colors: slicer(d.colors),
@@ -642,7 +665,6 @@
         charts.shortS.data = { labels: sd.dates, datasets: [{ data: sd.chip.ss, backgroundColor: sd.chip.ss.map(v => v>0 ? '#34D399':'#F87171'), ...bOpt }] }; charts.shortS.update(); 
         charts.futuresOi.data = { labels: sd.dates, datasets: [{ data: sd.chip.txOI, backgroundColor: sd.chip.txOI.map(v => v>0 ? '#F87171':'#34D399'), ...bOpt }] }; charts.futuresOi.update();
 
-        // 初始載入時觸發最新一日的 HUD 更新
         updateUIByIndex(null);
     }
 
@@ -742,11 +764,11 @@
 
             const rsi = calcRSI(prices), kd = calcKD(highs, lows, prices), macd = calcMACD(prices);
             const obv = calcOBV(prices, volumes);
-            const obv30 = calcMA(obv, 30); // OBV 30MA
-            const obv60 = calcMA(obv, 60); // OBV 60MA
+            const obv30 = calcMA(obv, 30); 
+            const obv60 = calcMA(obv, 60); 
             
             const bbw = calcBBW(prices);
-            const bbw3 = calcEMA(bbw, 3); // BBW 3EMA
+            const bbw3 = calcEMA(bbw, 3); 
             
             globalStockData = { 
                 ticker: stockId, name: stockNames[stockId] || stockId, fullDates, dates, prices, ohlc, volumes, colors, 
@@ -765,7 +787,6 @@
                 }
             });
 
-            // 回歸穩定安全的 FinMind 佇列新聞
             ApiQueue.add(`https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockNews&data_id=${stockId}&start_date=${shortSD}&end_date=${eD}`).then(res => {
                 const ul = document.getElementById('newsList');
                 let html = '';
