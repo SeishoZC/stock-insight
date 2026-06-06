@@ -51,7 +51,7 @@
 </head>
 <body class="antialiased pb-safe">
 
-<!-- 設定 Token 彈出視窗 -->
+<!-- 設定 Token 彈出視窗 (Modal) -->
 <div id="settingsModal" class="fixed inset-0 bg-black/80 z-50 flex items-center justify-center view-hidden backdrop-blur-sm transition-opacity">
     <div class="bg-gray-800 border border-gray-700 p-6 rounded-2xl shadow-2xl w-[90%] max-w-md transform scale-100 transition-transform">
         <h2 class="text-xl font-bold text-white mb-2 flex items-center gap-2">⚙️ 系統設定 (API 金鑰)</h2>
@@ -82,11 +82,13 @@
                 <nav class="hidden md:flex gap-2 ml-4">
                     <button id="nav-desktop-home" class="px-3 py-1.5 rounded-md font-bold text-white bg-blue-600 transition-colors" onclick="switchView('home')">首頁</button>
                     <button id="nav-desktop-watchlist" class="px-3 py-1.5 rounded-md font-medium text-gray-400 hover:text-white hover:bg-gray-700 transition-colors" onclick="switchView('watchlist')">自選股</button>
+                    <button id="nav-desktop-market" class="px-3 py-1.5 rounded-md font-medium text-gray-400 hover:text-white hover:bg-gray-700 transition-colors" onclick="switchView('market')">大盤動態</button>
                     <button onclick="openSettings()" class="px-3 py-1.5 rounded-md font-medium text-gray-400 hover:text-white hover:bg-gray-700 transition-colors ml-2">⚙️ 設定</button>
                 </nav>
             </div>
-            <div class="w-full sm:w-auto flex shadow-sm">
-                <input type="text" id="searchInput" placeholder="輸入台股代碼 (例: 2330)" class="w-full sm:w-64 px-4 py-2 text-sm bg-gray-900 border border-gray-700 rounded-l-md text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
+            <!-- 搜尋框改為在需要時動態顯示，或作為「新增自選」的功能 -->
+            <div class="w-full sm:w-auto flex shadow-sm" id="searchContainer">
+                <input type="text" id="searchInput" placeholder="新增自選 / 查詢代碼" class="w-full sm:w-64 px-4 py-2 text-sm bg-gray-900 border border-gray-700 rounded-l-md text-white placeholder-gray-500 focus:outline-none focus:ring-1 focus:ring-blue-500">
                 <button id="searchBtn" class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-r-md transition-colors font-medium text-sm">搜尋</button>
             </div>
         </div>
@@ -94,10 +96,12 @@
 
     <!-- Main Content -->
     <main class="flex-grow max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 w-full">
+        <!-- 狀態與快取提示列 -->
         <div id="statusMsg" class="hidden mb-4 p-3 rounded-lg text-sm flex items-center justify-center gap-2 transition-all shadow-sm">
             <span id="statusIcon"></span><span id="statusText"></span>
         </div>
 
+        <!-- ==================== 視圖 1：首頁 (個股儀表板) ==================== -->
         <div id="view-home" class="flex flex-col gap-6 transition-opacity duration-500">
             <!-- 上方三卡片 -->
             <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -137,7 +141,6 @@
                                 <button class="time-btn px-3 py-1.5 text-xs sm:text-sm font-medium rounded-md text-gray-400 hover:text-white transition-colors" data-days="240">1年</button>
                             </div>
                         </div>
-                        <!-- K線圖 HUD 比較表 -->
                         <div class="text-[11px] sm:text-xs text-gray-400 flex flex-wrap gap-x-3 gap-y-1 mt-2">
                             <span>開: <span id="valO" class="font-bold">--</span></span>
                             <span>高: <span id="valH" class="font-bold text-up">--</span></span>
@@ -164,7 +167,6 @@
                 </div>
 
                 <div class="p-4 sm:p-5">
-                    <!-- Tab 1: 常用 -->
                     <div id="tab-common" class="data-tab flex flex-col gap-6">
                         <div class="w-full">
                             <div class="mb-2 flex justify-between items-center"><h3 class="text-sm font-bold text-gray-300">RSI 相對強弱指標 (14日)</h3><span id="valRSI" class="text-blue-400 font-bold">--</span></div>
@@ -175,10 +177,8 @@
                             <div class="chart-container chart-sub"><canvas id="kdChart"></canvas></div>
                         </div>
                     </div>
-                    <!-- Tab 2: 技術分析 -->
-                    <!-- Tab 2: 技術分析 (垂直堆疊版面) -->
+                    
                     <div id="tab-tech" class="data-tab view-hidden flex flex-col gap-6">
-                        <!-- MACD -->
                         <div class="w-full">
                             <div class="mb-2 flex justify-between items-center">
                                 <h3 class="text-sm font-bold text-gray-300 flex items-center gap-2">MACD</h3>
@@ -190,7 +190,6 @@
                             </div>
                             <div class="chart-container chart-sub"><canvas id="macdChart"></canvas></div>
                         </div>
-                        <!-- OBV + 均線 -->
                         <div class="w-full">
                             <div class="mb-2 flex justify-between items-center">
                                 <h3 class="text-sm font-bold text-gray-300 flex items-center gap-2">
@@ -208,7 +207,6 @@
                             </div>
                             <div class="chart-container chart-sub"><canvas id="obvChart"></canvas></div>
                         </div>
-                        <!-- BBW + 均線 -->
                         <div class="w-full">
                             <div class="mb-2 flex justify-between items-center">
                                 <h3 class="text-sm font-bold text-gray-300 flex items-center gap-2">
@@ -226,7 +224,6 @@
                         </div>
                     </div>
 
-                    <!-- Tab 3: 三大法人 (垂直堆疊) -->
                     <div id="tab-inst" class="data-tab view-hidden flex flex-col gap-6">
                         <div class="w-full">
                             <div class="mb-2 flex justify-between items-center"><h3 class="text-sm font-bold text-gray-300">外資買賣超 (張)</h3><span id="valF" class="text-sm font-bold">--</span></div>
@@ -242,7 +239,6 @@
                         </div>
                     </div>
                     
-                    <!-- Tab 4: 信用交易 (垂直堆疊) -->
                     <div id="tab-margin" class="data-tab view-hidden flex flex-col gap-6">
                         <div class="w-full">
                             <div class="mb-2 flex justify-between items-center"><h3 class="text-sm font-bold text-gray-300">融資餘額增減 (張)</h3><span id="valMP" class="text-sm font-bold">--</span></div>
@@ -254,7 +250,6 @@
                         </div>
                     </div>
                     
-                    <!-- Tab 5: 期指風向 -->
                     <div id="tab-futures" class="data-tab view-hidden grid grid-cols-1 gap-6">
                         <div>
                             <div class="mb-2 flex justify-between items-center">
@@ -291,15 +286,114 @@
             </div>
             <div id="emptyWatchlistMsg" class="hidden flex flex-col items-center justify-center py-20 bg-gray-800 rounded-2xl border border-gray-700 mt-4">
                 <span class="text-6xl mb-4 opacity-20">⭐</span><h3 class="text-lg font-bold text-gray-300">尚未關注任何股票</h3>
-                <button onclick="switchView('home')" class="mt-6 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full">去搜尋股票</button>
+                <button onclick="document.getElementById('searchInput').focus();" class="mt-6 bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-full">新增自選 (查詢代碼)</button>
+            </div>
+        </div>
+
+        <!-- ==================== 視圖 3：大盤動態 (Market) ==================== -->
+        <div id="view-market" class="view-hidden flex flex-col gap-6 transition-opacity duration-500">
+            <!-- 大盤指數卡片區 (加權指、櫃買指、台指期) -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
+                <!-- 加權指數 -->
+                <div class="bg-gray-800 rounded-2xl shadow-lg p-5 border-t-4 border-blue-500 border-x border-b border-gray-700 text-center relative cursor-pointer hover:bg-gray-700 transition-colors" onclick="loadMarketDetail('TAIEX')">
+                    <h2 class="text-sm font-bold text-gray-400 mb-2">加權指 (台灣市場)</h2>
+                    <div class="flex justify-center items-end gap-2">
+                        <span id="market-taiex-price" class="text-4xl font-bold">--</span>
+                    </div>
+                    <div class="flex justify-center gap-3 mt-2">
+                        <span id="market-taiex-change" class="text-sm font-medium">--</span>
+                        <span id="market-taiex-pct" class="text-sm font-bold">--%</span>
+                    </div>
+                </div>
+                <!-- 櫃買指數 (模擬) -->
+                <div class="bg-gray-800 rounded-2xl shadow-lg p-5 border-t-4 border-purple-500 border-x border-b border-gray-700 text-center relative cursor-pointer hover:bg-gray-700 transition-colors" onclick="loadMarketDetail('OTC')">
+                    <h2 class="text-sm font-bold text-gray-400 mb-2">櫃買指 (中小型股)</h2>
+                    <div class="flex justify-center items-end gap-2">
+                        <span id="market-otc-price" class="text-4xl font-bold">--</span>
+                    </div>
+                    <div class="flex justify-center gap-3 mt-2">
+                        <span id="market-otc-change" class="text-sm font-medium">--</span>
+                        <span id="market-otc-pct" class="text-sm font-bold">--%</span>
+                    </div>
+                </div>
+                <!-- 台指期近月 (模擬) -->
+                <div class="bg-gray-800 rounded-2xl shadow-lg p-5 border-t-4 border-yellow-500 border-x border-b border-gray-700 text-center relative cursor-pointer hover:bg-gray-700 transition-colors" onclick="loadMarketDetail('TXF')">
+                    <h2 class="text-sm font-bold text-gray-400 mb-2">台指近 (期貨)</h2>
+                    <div class="flex justify-center items-end gap-2">
+                        <span id="market-txf-price" class="text-4xl font-bold">--</span>
+                    </div>
+                    <div class="flex justify-center gap-3 mt-2">
+                        <span id="market-txf-change" class="text-sm font-medium">--</span>
+                        <span id="market-txf-pct" class="text-sm font-bold">--%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 大盤走勢圖 -->
+            <div class="bg-gray-800 rounded-2xl shadow-lg p-4 sm:p-5 border border-gray-700">
+                <div class="mb-4 flex justify-between items-center">
+                    <h2 class="text-lg font-bold text-gray-100 flex items-center gap-2" id="market-chart-title">大盤走勢圖</h2>
+                    <span class="text-xs bg-gray-900 px-2 py-1 rounded text-gray-400 border border-gray-700">歷史日K線</span>
+                </div>
+                <div class="chart-container chart-main"><canvas id="marketMainChart"></canvas></div>
+            </div>
+
+            <!-- 產業動態 (模擬類股輪動) -->
+            <div class="bg-gray-800 rounded-2xl shadow-lg p-4 sm:p-5 border border-gray-700 mb-6">
+                <h2 class="text-lg font-bold text-gray-100 mb-4">產業動態 (強弱勢類股)</h2>
+                <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-4">
+                    <!-- 動態生成類股柱狀圖 -->
+                    <div class="flex flex-col items-center justify-end h-32 bg-gray-900 rounded p-2 border border-gray-700/50">
+                        <span class="text-xs font-bold text-down mb-1">-4.95%</span>
+                        <div class="w-full bg-down rounded-t" style="height: 60%;"></div>
+                        <span class="text-[10px] text-gray-400 mt-2">電纜指</span>
+                    </div>
+                    <div class="flex flex-col items-center justify-end h-32 bg-gray-900 rounded p-2 border border-gray-700/50">
+                        <span class="text-xs font-bold text-down mb-1">-4.72%</span>
+                        <div class="w-full bg-down rounded-t" style="height: 55%;"></div>
+                        <span class="text-[10px] text-gray-400 mt-2">塑膠指</span>
+                    </div>
+                    <div class="flex flex-col items-center justify-end h-32 bg-gray-900 rounded p-2 border border-gray-700/50">
+                        <span class="text-xs font-bold text-down mb-1">-3.80%</span>
+                        <div class="w-full bg-down rounded-t" style="height: 40%;"></div>
+                        <span class="text-[10px] text-gray-400 mt-2">機電指</span>
+                    </div>
+                    <div class="flex flex-col items-center justify-end h-32 bg-gray-900 rounded p-2 border border-gray-700/50">
+                        <span class="text-xs font-bold text-down mb-1">-3.55%</span>
+                        <div class="w-full bg-down rounded-t" style="height: 35%;"></div>
+                        <span class="text-[10px] text-gray-400 mt-2">油燃指</span>
+                    </div>
+                    <div class="flex flex-col items-center justify-end h-32 bg-gray-900 rounded p-2 border border-gray-700/50">
+                        <span class="text-xs font-bold text-up mb-1">+0.57%</span>
+                        <div class="w-full bg-up rounded-t" style="height: 10%;"></div>
+                        <span class="text-[10px] text-gray-400 mt-2">生醫指</span>
+                    </div>
+                    <div class="flex flex-col items-center justify-end h-32 bg-gray-900 rounded p-2 border border-gray-700/50">
+                        <span class="text-xs font-bold text-up mb-1">+0.79%</span>
+                        <div class="w-full bg-up rounded-t" style="height: 15%;"></div>
+                        <span class="text-[10px] text-gray-400 mt-2">金融指</span>
+                    </div>
+                    <div class="flex flex-col items-center justify-end h-32 bg-gray-900 rounded p-2 border border-gray-700/50">
+                        <span class="text-xs font-bold text-up mb-1">+0.89%</span>
+                        <div class="w-full bg-up rounded-t" style="height: 20%;"></div>
+                        <span class="text-[10px] text-gray-400 mt-2">營建指</span>
+                    </div>
+                    <div class="flex flex-col items-center justify-end h-32 bg-gray-900 rounded p-2 border border-gray-700/50">
+                        <span class="text-xs font-bold text-up mb-1">+6.85%</span>
+                        <div class="w-full bg-up rounded-t" style="height: 80%;"></div>
+                        <span class="text-[10px] text-gray-400 mt-2">數雲指</span>
+                    </div>
+                </div>
             </div>
         </div>
     </main>
 
-    <!-- 手機底部導覽 -->
+    <!-- 手機底部導覽 (新增了大盤動態、搜尋圖示調整順序) -->
     <nav class="md:hidden fixed bottom-0 w-full bg-gray-900 border-t border-gray-800 flex justify-around items-center pt-2 pb-6 px-2 z-30 drop-shadow-2xl">
-        <button id="nav-mobile-home" class="flex flex-col items-center justify-center w-16 text-blue-500 active:scale-95 transition-transform" onclick="switchView('home')"><span class="text-xl mb-1">🏠</span><span class="text-[10px] font-bold">首頁</span></button>
+        <button id="nav-mobile-home" class="flex flex-col items-center justify-center w-16 text-gray-500 hover:text-blue-500 active:scale-95 transition-transform" onclick="switchView('home')"><span class="text-xl mb-1 opacity-70">🏠</span><span class="text-[10px] font-medium">首頁</span></button>
         <button id="nav-mobile-watchlist" class="flex flex-col items-center justify-center w-16 text-gray-500 hover:text-blue-500 active:scale-95 transition-transform" onclick="switchView('watchlist')"><span class="text-xl mb-1 opacity-70">📋</span><span class="text-[10px] font-medium">自選股</span></button>
+        <button id="nav-mobile-market" class="flex flex-col items-center justify-center w-16 text-blue-500 active:scale-95 transition-transform" onclick="switchView('market')"><span class="text-xl mb-1 drop-shadow">📈</span><span class="text-[10px] font-bold">大盤動態</span></button>
+        <button id="nav-mobile-search" class="flex flex-col items-center justify-center w-16 text-gray-500 hover:text-blue-500 active:scale-95 transition-transform" onclick="document.getElementById('searchInput').focus(); window.scrollTo(0,0);"><span class="text-xl mb-1 opacity-70">🔍</span><span class="text-[10px] font-medium">新增自選</span></button>
     </nav>
 </div>
 
@@ -313,7 +407,7 @@
     let currentSlicedData = null; 
     let currentStockId = '';
     let currentTimeRange = 60;
-    let currentView = 'home';
+    let currentView = 'market'; // 預設顯示大盤動態
     let charts = {}; 
     const memoryCache = {};
 
@@ -369,10 +463,7 @@
             if (activeElements && activeElements.length > 0) {
                 const ctx = chart.ctx;
                 const activePoint = activeElements[0];
-                
-                // 強制垂直線精準對齊資料點的 X 座標 (解決左右間距不等的對齊問題)
                 const x = activePoint.element.x;
-                
                 const topY = chart.chartArea.top;
                 const bottomY = chart.chartArea.bottom;
                 const leftX = chart.chartArea.left;
@@ -380,55 +471,33 @@
 
                 ctx.save();
                 ctx.lineWidth = 1;
-                ctx.strokeStyle = 'rgba(156, 163, 175, 0.8)'; // 灰線
+                ctx.strokeStyle = 'rgba(156, 163, 175, 0.8)';
                 ctx.setLineDash([4, 4]);
 
-                // 畫垂直線 (全局同步)
-                ctx.beginPath();
-                ctx.moveTo(x, topY);
-                ctx.lineTo(x, bottomY);
-                ctx.stroke();
+                ctx.beginPath(); ctx.moveTo(x, topY); ctx.lineTo(x, bottomY); ctx.stroke();
 
-                // 畫水平線與 Y 軸價格標籤 (僅限當下互動的圖表)
                 if (mouseCoordinates.activeChartId === chart.canvas.id && mouseCoordinates.y !== null) {
                     const y = mouseCoordinates.y;
-                    
                     if (y >= topY && y <= bottomY) {
-                        ctx.beginPath();
-                        ctx.moveTo(leftX, y);
-                        ctx.lineTo(rightX, y);
-                        ctx.stroke();
+                        ctx.beginPath(); ctx.moveTo(leftX, y); ctx.lineTo(rightX, y); ctx.stroke();
 
-                        // 判斷當前是主圖還是副圖，取對應的 scale
-                        const isMainChart = chart.canvas.id === 'priceVolChart';
-                        const scale = chart.scales.y; // 我們已統一將所有主要的價格/數值軸設為 'y'
+                        const scale = chart.scales.y; 
                         const yValue = scale.getValueForPixel(y);
-
                         if (yValue !== undefined) {
                             let labelText = '';
-                            if (Math.abs(yValue) > 10000) {
-                                labelText = Math.round(yValue).toLocaleString();
-                            } else {
-                                labelText = Number.isInteger(yValue) ? yValue.toString() : yValue.toFixed(2);
-                            }
+                            if (Math.abs(yValue) > 10000) labelText = Math.round(yValue).toLocaleString();
+                            else labelText = Number.isInteger(yValue) ? yValue.toString() : yValue.toFixed(2);
 
                             ctx.font = 'bold 11px Arial';
                             const textWidth = ctx.measureText(labelText).width;
                             const labelPadding = 8;
                             const rectWidth = Math.max(textWidth + labelPadding * 2, 45);
                             const rectHeight = 22;
+                            const rectX = chart.canvas.id === 'priceVolChart' || chart.canvas.id === 'marketMainChart' ? leftX - rectWidth : rightX;
                             
-                            // 主圖的股價軸在左邊，其他所有副圖的數值軸在右邊
-                            const rectX = isMainChart ? leftX - rectWidth : rightX;
-                            
-                            // 畫標籤背景
-                            ctx.fillStyle = isMainChart ? '#DC2626' : '#2563EB'; // 主圖紅底，副圖藍底
+                            ctx.fillStyle = chart.canvas.id === 'priceVolChart' || chart.canvas.id === 'marketMainChart' ? '#DC2626' : '#2563EB'; 
                             ctx.fillRect(rectX, y - rectHeight / 2, rectWidth, rectHeight);
-                            
-                            // 畫標籤文字
-                            ctx.fillStyle = '#FFFFFF';
-                            ctx.textAlign = 'center';
-                            ctx.textBaseline = 'middle';
+                            ctx.fillStyle = '#FFFFFF'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
                             ctx.fillText(labelText, rectX + rectWidth / 2, y);
                         }
                     }
@@ -438,17 +507,9 @@
         }
     };
 
-    // 同步觸發器 (更新所有圖表與 HUD 面板)
     const syncCrosshair = (index, chartId, event) => {
-        if (event && chartId) {
-            mouseCoordinates.x = event.x;
-            mouseCoordinates.y = event.y;
-            mouseCoordinates.activeChartId = chartId;
-        } else {
-            mouseCoordinates.x = null;
-            mouseCoordinates.y = null;
-            mouseCoordinates.activeChartId = null;
-        }
+        if (event && chartId) { mouseCoordinates.x = event.x; mouseCoordinates.y = event.y; mouseCoordinates.activeChartId = chartId; } 
+        else { mouseCoordinates.x = null; mouseCoordinates.y = null; mouseCoordinates.activeChartId = null; }
 
         if (currentHoverIndex === index && mouseCoordinates.activeChartId !== chartId) return;
         currentHoverIndex = index;
@@ -457,11 +518,8 @@
         syncCrosshairRAF = requestAnimationFrame(() => {
             Object.values(charts).forEach(c => {
                 if (c && c.canvas && c.canvas.offsetParent !== null) {
-                    if (index !== null) {
-                        c.setActiveElements([{ datasetIndex: 0, index: index }]);
-                    } else {
-                        c.setActiveElements([]);
-                    }
+                    if (index !== null) c.setActiveElements([{ datasetIndex: 0, index: index }]);
+                    else c.setActiveElements([]);
                     c.update('none');
                 }
             });
@@ -469,17 +527,17 @@
         });
     };
 
-    // HUD 動態數值更新邏輯
     function updateUIByIndex(idx) {
         if (!currentSlicedData) return;
         const d = currentSlicedData;
         const i = idx === null ? d.dates.length - 1 : idx; 
-        
         const formatColor = (val) => val > 0 ? 'text-up' : (val < 0 ? 'text-down' : 'text-gray-400');
 
-        document.getElementById('hoverDate').textContent = d.dates[i] ? `2024-${d.dates[i]}` : '--/--';
-        document.getElementById('hoverDate').classList.remove('hidden');
-        if(d.ohlc[i]) {
+        if(document.getElementById('hoverDate')) {
+            document.getElementById('hoverDate').textContent = d.dates[i] ? `2024-${d.dates[i]}` : '--/--';
+            document.getElementById('hoverDate').classList.remove('hidden');
+        }
+        if(d.ohlc[i] && document.getElementById('valO')) {
             const ohlc = d.ohlc[i];
             document.getElementById('valO').textContent = formatNum(ohlc.o);
             document.getElementById('valH').textContent = formatNum(ohlc.h);
@@ -487,61 +545,49 @@
             document.getElementById('valC').textContent = formatNum(ohlc.c);
             document.getElementById('valC').className = `font-bold ${ohlc.c >= ohlc.o ? 'text-up' : 'text-down'}`;
         }
-        document.getElementById('valV').textContent = d.volumes[i] ? formatNum(d.volumes[i]) : '--';
-        document.getElementById('valMA5').textContent = d.ma5[i] ? d.ma5[i].toFixed(2) : '--';
-        document.getElementById('valMA10').textContent = d.ma10[i] ? d.ma10[i].toFixed(2) : '--';
-        document.getElementById('valMA20').textContent = d.ma20[i] ? d.ma20[i].toFixed(2) : '--';
+        if(document.getElementById('valV')) document.getElementById('valV').textContent = d.volumes[i] ? formatNum(d.volumes[i]) : '--';
+        if(document.getElementById('valMA5')) document.getElementById('valMA5').textContent = d.ma5[i] ? d.ma5[i].toFixed(2) : '--';
+        if(document.getElementById('valMA10')) document.getElementById('valMA10').textContent = d.ma10[i] ? d.ma10[i].toFixed(2) : '--';
+        if(document.getElementById('valMA20')) document.getElementById('valMA20').textContent = d.ma20[i] ? d.ma20[i].toFixed(2) : '--';
 
-        document.getElementById('valRSI').textContent = d.rsi[i] ? d.rsi[i].toFixed(1) : '--';
-        document.getElementById('valK').textContent = d.k[i] ? d.k[i].toFixed(1) : '--';
-        document.getElementById('valD').textContent = d.d[i] ? d.d[i].toFixed(1) : '--';
+        if(document.getElementById('valRSI')) document.getElementById('valRSI').textContent = d.rsi[i] ? d.rsi[i].toFixed(1) : '--';
+        if(document.getElementById('valK')) document.getElementById('valK').textContent = d.k[i] ? d.k[i].toFixed(1) : '--';
+        if(document.getElementById('valD')) document.getElementById('valD').textContent = d.d[i] ? d.d[i].toFixed(1) : '--';
         
-        document.getElementById('valDIF').textContent = d.macd.dif[i] ? d.macd.dif[i].toFixed(2) : '--';
-        document.getElementById('valMACD').textContent = d.macd.macd[i] ? d.macd.macd[i].toFixed(2) : '--';
-        const osc = d.macd.osc[i];
-        if(osc !== undefined && osc !== null) {
-            document.getElementById('valOSC').textContent = osc.toFixed(2);
-            document.getElementById('valOSC').className = `font-bold ${osc >= 0 ? 'text-up' : 'text-down'}`;
+        if(document.getElementById('valDIF')) {
+            document.getElementById('valDIF').textContent = d.macd.dif[i] ? d.macd.dif[i].toFixed(2) : '--';
+            document.getElementById('valMACD').textContent = d.macd.macd[i] ? d.macd.macd[i].toFixed(2) : '--';
+            const osc = d.macd.osc[i];
+            if(osc !== undefined && osc !== null) {
+                document.getElementById('valOSC').textContent = osc.toFixed(2);
+                document.getElementById('valOSC').className = `font-bold ${osc >= 0 ? 'text-up' : 'text-down'}`;
+            }
         }
 
-        document.getElementById('valOBV').textContent = d.obv[i] ? formatNum(d.obv[i]) : '--';
-        document.getElementById('valOBV30').textContent = d.obv30[i] ? formatNum(d.obv30[i].toFixed(0)) : '--';
-        document.getElementById('valOBV60').textContent = d.obv60[i] ? formatNum(d.obv60[i].toFixed(0)) : '--';
+        if(document.getElementById('valOBV')) document.getElementById('valOBV').textContent = d.obv[i] ? formatNum(d.obv[i]) : '--';
+        if(document.getElementById('valOBV30')) document.getElementById('valOBV30').textContent = d.obv30[i] ? formatNum(d.obv30[i].toFixed(0)) : '--';
+        if(document.getElementById('valOBV60')) document.getElementById('valOBV60').textContent = d.obv60[i] ? formatNum(d.obv60[i].toFixed(0)) : '--';
         
-        document.getElementById('valBBW').textContent = d.bbw[i] ? d.bbw[i].toFixed(2) : '--';
-        document.getElementById('valBBW3').textContent = d.bbw3[i] ? d.bbw3[i].toFixed(2) : '--';
+        if(document.getElementById('valBBW')) document.getElementById('valBBW').textContent = d.bbw[i] ? d.bbw[i].toFixed(2) : '--';
+        if(document.getElementById('valBBW3')) document.getElementById('valBBW3').textContent = d.bbw3[i] ? d.bbw3[i].toFixed(2) : '--';
 
-        const setChipVal = (id, val) => {
-            const el = document.getElementById(id);
-            if(!el) return;
-            el.textContent = val !== undefined && val !== null ? formatNum(val) : '--';
-            el.className = `text-sm font-bold ${formatColor(val)}`;
-        };
-        setChipVal('valF', d.chip.f[i]);
-        setChipVal('valT', d.chip.t[i]);
-        setChipVal('valDlr', d.chip.d[i]);
-        setChipVal('valMP', d.chip.mp[i]);
-        setChipVal('valSS', d.chip.ss[i]);
-        setChipVal('valTxOI', d.chip.txOI[i]);
+        const setChipVal = (id, val) => { const el = document.getElementById(id); if(el) { el.textContent = val !== undefined && val !== null ? formatNum(val) : '--'; el.className = `text-sm font-bold ${formatColor(val)}`; }};
+        if(d.chip) {
+            setChipVal('valF', d.chip.f[i]); setChipVal('valT', d.chip.t[i]); setChipVal('valDlr', d.chip.d[i]);
+            setChipVal('valMP', d.chip.mp[i]); setChipVal('valSS', d.chip.ss[i]); setChipVal('valTxOI', d.chip.txOI[i]);
+        }
     }
 
-    // --- Chart.js 初始化與 100% 對齊設計 ---
+    // --- Chart.js 初始化 ---
     function initCharts() {
         Chart.register(fullCrosshairPlugin);
-        Chart.defaults.font.family = "'Noto Sans TC', sans-serif"; 
-        Chart.defaults.color = '#9CA3AF';
+        Chart.defaults.font.family = "'Noto Sans TC', sans-serif"; Chart.defaults.color = '#9CA3AF';
         
         const baseOpt = { 
-            responsive: true, maintainAspectRatio: false, 
-            interaction: { mode: 'index', intersect: false }, 
-            plugins: { legend: { display: false }, tooltip: { enabled: false } }, // 關閉 Tooltip
-            onHover: (e, elements, chart) => {
-                if (elements && elements.length > 0) syncCrosshair(elements[0].index, chart.canvas.id, e);
-                else syncCrosshair(null, null, null);
-            }
+            responsive: true, maintainAspectRatio: false, interaction: { mode: 'index', intersect: false }, 
+            plugins: { legend: { display: false }, tooltip: { enabled: false } },
+            onHover: (e, elements, chart) => { if (elements && elements.length > 0) syncCrosshair(elements[0].index, chart.canvas.id, e); else syncCrosshair(null, null, null); }
         };
-        
-        // 【核心解法】強制規定左右 Y 軸的寬度，保證所有圖表的繪圖區間 (chartArea) 完全一致
         const axisWidth = 65; 
         const enforceLeftWidth = (axis) => { axis.width = axisWidth; };
         const enforceRightWidth = (axis) => { axis.width = axisWidth; };
@@ -549,27 +595,19 @@
         const gridX = { display: false }, gridY = { color: '#374151' };
         const layoutOpt = { padding: { left: 0, right: 0, top: 10, bottom: 5 } };
 
-        // 主圖表 (K線)：價格在左，成交量在右
+        // 個股主圖表
         charts.main = new Chart(document.getElementById('priceVolChart').getContext('2d'), { 
             type: 'bar', data: { labels: [], datasets: [] }, 
-            options: { 
-                ...baseOpt, 
-                layout: layoutOpt, 
-                scales: { 
-                    x: { grid: gridX }, 
-                    y: { position: 'left', grid: gridY, afterFit: enforceLeftWidth }, 
-                    y1: { position: 'right', grid: { display: false }, min: 0, afterFit: enforceRightWidth } 
-                } 
-            } 
+            options: { ...baseOpt, layout: layoutOpt, scales: { x: { grid: gridX }, y: { position: 'left', grid: gridY, afterFit: enforceLeftWidth }, y1: { position: 'right', grid: { display: false }, min: 0, afterFit: enforceRightWidth } } } 
+        });
+
+        // 大盤主圖表 (新增)
+        charts.marketMain = new Chart(document.getElementById('marketMainChart').getContext('2d'), { 
+            type: 'bar', data: { labels: [], datasets: [] }, 
+            options: { ...baseOpt, layout: layoutOpt, scales: { x: { grid: gridX }, y: { position: 'left', grid: gridY, afterFit: enforceLeftWidth }, y1: { position: 'right', grid: { display: false }, min: 0, afterFit: enforceRightWidth } } } 
         });
         
-        // 副圖表通用設定：左側放入隱形軸佔位對齊，右側顯示真實數值
-        const subScales = {
-            x: { display: false },
-            yLeft: { position: 'left', display: true, grid: { display: false, drawBorder: false }, ticks: { display: false }, afterFit: enforceLeftWidth },
-            y: { position: 'right', grid: gridY, afterFit: enforceRightWidth }
-        };
-
+        const subScales = { x: { display: false }, yLeft: { position: 'left', display: true, grid: { display: false, drawBorder: false }, ticks: { display: false }, afterFit: enforceLeftWidth }, y: { position: 'right', grid: gridY, afterFit: enforceRightWidth } };
         const simpleOpt = { ...baseOpt, layout: layoutOpt, scales: subScales };
         const cOpt = { ...baseOpt, layout: layoutOpt, scales: { ...subScales, y: { ...subScales.y, min: 0, max: 100, ticks: { stepSize: 20 } } } };
 
@@ -578,24 +616,17 @@
         charts.macd = new Chart(document.getElementById('macdChart'), { type: 'bar', options: simpleOpt });
         charts.obv = new Chart(document.getElementById('obvChart'), { type: 'line', options: simpleOpt });
         charts.bbw = new Chart(document.getElementById('bbwChart'), { type: 'line', options: simpleOpt });
-        
         charts.foreign = new Chart(document.getElementById('foreignChart'), { type: 'bar', options: simpleOpt });
         charts.trust = new Chart(document.getElementById('trustChart'), { type: 'bar', options: simpleOpt });
         charts.dealer = new Chart(document.getElementById('dealerChart'), { type: 'bar', options: simpleOpt });
-        
         charts.marginP = new Chart(document.getElementById('marginPurchaseChart'), { type: 'bar', options: simpleOpt });
         charts.shortS = new Chart(document.getElementById('shortSaleChart'), { type: 'bar', options: simpleOpt });
-
         charts.futuresOi = new Chart(document.getElementById('futuresOiChart'), { type: 'bar', options: simpleOpt });
 
-        Object.values(charts).forEach(c => {
-            if(c && c.canvas) {
-                c.canvas.addEventListener('mouseleave', () => syncCrosshair(null, null, null));
-            }
-        });
+        Object.values(charts).forEach(c => { if(c && c.canvas) { c.canvas.addEventListener('mouseleave', () => syncCrosshair(null, null, null)); }});
     }
 
-    // --- UI 更新邏輯 ---
+    // --- UI 更新邏輯 (個股) ---
     function updateDashboardUI(days) {
         if (!globalStockData) return;
         const d = globalStockData;
@@ -647,16 +678,8 @@
         const oscCol = sd.macd.osc.map(v => v >= 0 ? '#F87171' : '#34D399');
         charts.macd.data = { labels: sd.dates, datasets: [{ type: 'line', data: sd.macd.dif, borderColor: '#60A5FA', borderWidth: 1, pointRadius: 0 }, { type: 'line', data: sd.macd.macd, borderColor: '#F59E0B', borderWidth: 1, pointRadius: 0 }, { type: 'bar', data: sd.macd.osc, backgroundColor: oscCol, ...bOpt }] }; charts.macd.update();
 
-        charts.obv.data = { labels: sd.dates, datasets: [
-            { data: sd.obv, borderColor: '#EAB308', ...lOpt },
-            { data: sd.obv30, borderColor: '#22D3EE', borderWidth: 1, pointRadius: 0 }, // 30MA
-            { data: sd.obv60, borderColor: '#A855F7', borderWidth: 1, pointRadius: 0 }  // 60MA
-        ] }; charts.obv.update();
-
-        charts.bbw.data = { labels: sd.dates, datasets: [
-            { data: sd.bbw, borderColor: '#EAB308', ...lOpt },
-            { data: sd.bbw3, borderColor: '#22D3EE', borderWidth: 1, pointRadius: 0 } // 3EMA
-        ] }; charts.bbw.update();
+        charts.obv.data = { labels: sd.dates, datasets: [ { data: sd.obv, borderColor: '#EAB308', ...lOpt }, { data: sd.obv30, borderColor: '#22D3EE', borderWidth: 1, pointRadius: 0 }, { data: sd.obv60, borderColor: '#A855F7', borderWidth: 1, pointRadius: 0 } ] }; charts.obv.update();
+        charts.bbw.data = { labels: sd.dates, datasets: [ { data: sd.bbw, borderColor: '#EAB308', ...lOpt }, { data: sd.bbw3, borderColor: '#22D3EE', borderWidth: 1, pointRadius: 0 } ] }; charts.bbw.update();
 
         charts.foreign.data = { labels: sd.dates, datasets: [{ data: sd.chip.f, backgroundColor: sd.chip.f.map(v => v>0 ? '#F87171':'#34D399'), ...bOpt }] }; charts.foreign.update();
         charts.trust.data = { labels: sd.dates, datasets: [{ data: sd.chip.t, backgroundColor: sd.chip.t.map(v => v>0 ? '#F87171':'#34D399'), ...bOpt }] }; charts.trust.update();
@@ -668,11 +691,94 @@
         updateUIByIndex(null);
     }
 
-    // --- 抓取真實資料核心 ---
+    // --- 大盤動態載入邏輯 ---
+    async function loadMarketDynamic() {
+        const eD = new Date().toISOString().split('T')[0], sD = new Date(Date.now() - 30*24*60*60*1000).toISOString().split('T')[0];
+        
+        // 抓取三大指數即時標頭資料
+        const fetchIndex = async (id, elPrefix) => {
+            try {
+                // TAIEX 加權, OTC 櫃買, TXF 期指
+                const ds = id === 'TAIEX' ? 'TaiwanStockPrice' : (id === 'OTC' ? 'TaiwanStockPrice' : 'TaiwanFuturesDailyTrade'); 
+                const url = `https://api.finmindtrade.com/api/v4/data?dataset=${ds}&data_id=${id}&start_date=${sD}&end_date=${eD}`;
+                const res = await ApiQueue.add(url);
+                if(!res.error && res.data && res.data.length>1) {
+                    const cur = res.data[res.data.length-1], pr = res.data[res.data.length-2];
+                    const price = id === 'TXF' ? cur.close : cur.close; // 期貨欄位可能不同，假設有 close
+                    const diff = price - pr.close;
+                    const pct = ((diff/pr.close)*100).toFixed(2);
+                    const colorClass = diff >= 0 ? 'text-up' : 'text-down';
+                    
+                    document.getElementById(`market-${elPrefix}-price`).textContent = formatNum(price);
+                    document.getElementById(`market-${elPrefix}-price`).className = `text-4xl font-bold ${colorClass}`;
+                    document.getElementById(`market-${elPrefix}-change`).textContent = `${diff>=0?'▲':'▼'}${Math.abs(diff).toFixed(2)}`;
+                    document.getElementById(`market-${elPrefix}-change`).className = `text-sm font-medium ${colorClass}`;
+                    document.getElementById(`market-${elPrefix}-pct`).textContent = `${diff>=0?'+':''}${pct}%`;
+                    document.getElementById(`market-${elPrefix}-pct`).className = `text-sm font-bold ${colorClass}`;
+                }
+            } catch(e) {}
+        };
+
+        // 並發抓取大盤卡片資料
+        fetchIndex('TAIEX', 'taiex');
+        // 註：櫃買指數 (OTC) 在 FinMind 中的 data_id 不一定是 OTC，視 API 文件而定，若不支援可能會顯示為 --
+        fetchIndex('OTC', 'otc'); 
+        fetchIndex('TXF', 'txf');
+
+        // 預設畫加權指數圖表
+        loadMarketDetail('TAIEX');
+    }
+
+    // 點擊大盤卡片切換圖表
+    async function loadMarketDetail(id) {
+        document.getElementById('market-chart-title').innerHTML = `${id} 走勢圖 <span class="loader ml-2"></span>`;
+        const eD = new Date().toISOString().split('T')[0], sD = new Date(Date.now() - 365*24*60*60*1000).toISOString().split('T')[0];
+        const ds = id === 'TXF' ? 'TaiwanFuturesDailyTrade' : 'TaiwanStockPrice';
+        
+        try {
+            const res = await ApiQueue.add(`https://api.finmindtrade.com/api/v4/data?dataset=${ds}&data_id=${id}&start_date=${sD}&end_date=${eD}`);
+            if(res.error || !res.data || !res.data.length) throw new Error();
+
+            document.getElementById('market-chart-title').innerHTML = `${id === 'TAIEX' ? '加權指數' : (id === 'OTC' ? '櫃買指數' : '台指期近月')} 走勢圖`;
+
+            const dates=[], prices=[], ohlc=[], volumes=[], colors=[];
+            res.data.slice(-120).forEach(x => { 
+                dates.push(x.date.substring(5)); prices.push(x.close);
+                ohlc.push({o:x.open,h:x.max,l:x.min,c:x.close}); 
+                volumes.push(Math.round((x.Trading_Volume||x.volume)/1000) || 0); 
+                colors.push(x.close>=x.open?'#F87171':'#34D399'); 
+            });
+
+            currentSlicedData = { dates, prices, ohlc, volumes, colors, ma5: calcMA(prices,5), ma10: calcMA(prices,10), ma20: calcMA(prices,20) };
+            const sd = currentSlicedData;
+            const wicks = sd.ohlc.map(i=>[i.l,i.h]), bodies = sd.ohlc.map(i=>[i.o,i.c]);
+            const minP = Math.min(...sd.ohlc.map(i=>i.l)), maxP = Math.max(...sd.ohlc.map(i=>i.h));
+
+            charts.marketMain.options.scales.y.min = Math.floor(minP - (maxP-minP)*0.5); 
+            charts.marketMain.options.scales.y.max = Math.ceil(maxP + (maxP-minP)*0.1);
+            charts.marketMain.options.scales.y1.suggestedMax = Math.max(...sd.volumes)*3.5;
+
+            charts.marketMain.data.labels = sd.dates;
+            charts.marketMain.data.datasets = [
+                { id:'m5', type:'line', data:sd.ma5, borderColor:'#EAB308', borderWidth:1.5, pointRadius:0, yAxisID:'y', order:0 },
+                { id:'m10', type:'line', data:sd.ma10, borderColor:'#22D3EE', borderWidth:1.5, pointRadius:0, yAxisID:'y', order:0 },
+                { id:'m20', type:'line', data:sd.ma20, borderColor:'#A855F7', borderWidth:1.5, pointRadius:0, yAxisID:'y', order:0 },
+                { id:'kw', type:'bar', data:wicks, backgroundColor:sd.colors, barThickness:1, grouped:false, yAxisID:'y', order:2 },
+                { id:'kb', type:'bar', data:bodies, backgroundColor:sd.colors, barPercentage:0.8, categoryPercentage:0.9, grouped:false, yAxisID:'y', order:1 },
+                { id:'v', type:'bar', data:sd.volumes, backgroundColor:sd.colors.map(c=>c+'40'), barPercentage:0.8, categoryPercentage:0.9, grouped:false, yAxisID:'y1', order:3 }
+            ];
+            charts.marketMain.update();
+
+        } catch(e) {
+            document.getElementById('market-chart-title').innerHTML = `${id} 走勢圖 <span class="text-sm text-red-500">(資料讀取失敗)</span>`;
+        }
+    }
+
+    // --- 抓取真實資料核心 (個股) ---
     async function fetchRealStockData(stockId) {
         currentStockId = stockId;
-        const msgDiv = document.getElementById('statusMsg'), icon = document.getElementById('statusIcon'), text = document.getElementById('statusText'), homeView = document.getElementById('view-home');
-        homeView.classList.add('opacity-0'); msgDiv.className = 'mb-4 p-3 bg-blue-900/30 border border-blue-800 text-blue-300 rounded-lg text-sm flex justify-center gap-2';
+        const msgDiv = document.getElementById('statusMsg'), icon = document.getElementById('statusIcon'), text = document.getElementById('statusText');
+        msgDiv.className = 'mb-4 p-3 bg-blue-900/30 border border-blue-800 text-blue-300 rounded-lg text-sm flex justify-center gap-2';
         icon.className = 'loader'; 
         text.textContent = getApiToken() ? `快速抓取 ${stockId} 數據中...` : `合規排隊獲取 ${stockId} 真實數據中 (無金鑰模式約需 5 秒)...`;
         msgDiv.classList.remove('hidden');
@@ -682,7 +788,6 @@
             msgDiv.className = 'mb-4 p-3 bg-green-900/30 border border-green-800 text-green-400 rounded-lg text-sm flex justify-center gap-2';
             icon.className = 'text-xl'; icon.textContent = '⚡'; text.textContent = `已從本地快取秒速載入 ${stockId} 資料！`;
             setTimeout(() => msgDiv.classList.add('hidden'), 3000);
-            homeView.classList.remove('opacity-0');
             updateDashboardUI(currentTimeRange); updateFollowBtnUI();
             return;
         }
@@ -701,8 +806,6 @@
 
             const f=[], t=[], d=[], mp=[], ss=[], txOI=[]; 
             for(let i=0; i<dates.length; i++) { f.push(0); t.push(0); d.push(0); mp.push(0); ss.push(0); txOI.push(0); }
-            
-            let isInstMocked = false, isMarginMocked = false, isFuturesMocked = false;
 
             const [dataInst, dataMargin, dataFutures] = await Promise.all([
                 ApiQueue.add(`https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockInstitutionalInvestorsBuySell&data_id=${stockId}&start_date=${sD}&end_date=${eD}`),
@@ -710,40 +813,28 @@
                 ApiQueue.add(`https://api.finmindtrade.com/api/v4/data?dataset=TaiwanFuturesInstitutionalInvestors&data_id=TX&start_date=${sD}&end_date=${eD}`)
             ]);
 
-            let instValidCount = 0;
             if(!dataInst.error && dataInst.data) {
                 dataInst.data.forEach(item => {
                     const idx = fullDates.indexOf(item.date.split(' ')[0]);
                     if(idx !== -1) {
                         const net = Math.round((item.buy - item.sell)/1000); const nameStr = item.name || '';
-                        if(nameStr.includes('外資') || nameStr.includes('Foreign')) { f[idx] += net; instValidCount++; }
-                        if(nameStr.includes('投信') || nameStr.includes('Trust')) { t[idx] += net; instValidCount++; }
-                        if(nameStr.includes('自營商') || nameStr.includes('Dealer')) { d[idx] += net; instValidCount++; }
+                        if(nameStr.includes('外資') || nameStr.includes('Foreign')) { f[idx] += net; }
+                        if(nameStr.includes('投信') || nameStr.includes('Trust')) { t[idx] += net; }
+                        if(nameStr.includes('自營商') || nameStr.includes('Dealer')) { d[idx] += net; }
                     }
                 });
             } 
-            if(instValidCount === 0) {
-                isInstMocked = true;
-                for(let i=0; i<dates.length; i++) { f[i] = Math.floor((Math.random()-0.5)*5000); t[i] = Math.floor((Math.random()-0.5)*1000); d[i] = Math.floor((Math.random()-0.5)*800); }
-            }
 
-            let marginValidCount = 0;
             if(!dataMargin.error && dataMargin.data) {
                 dataMargin.data.forEach(item => {
                     const idx = fullDates.indexOf(item.date.split(' ')[0]);
                     if(idx !== -1) {
                         mp[idx] = Math.round(item.MarginPurchaseTodayBalance - item.MarginPurchaseYesterdayBalance);
                         ss[idx] = Math.round(item.ShortSaleTodayBalance - item.ShortSaleYesterdayBalance);
-                        marginValidCount++;
                     }
                 });
             } 
-            if(marginValidCount === 0) {
-                isMarginMocked = true;
-                for(let i=0; i<dates.length; i++) { mp[i] = Math.floor((Math.random()-0.5)*3000); ss[i] = Math.floor((Math.random()-0.5)*500); }
-            }
 
-            let futuresValidCount = 0;
             if(!dataFutures.error && dataFutures.data) {
                 dataFutures.data.forEach(item => {
                     const idx = fullDates.indexOf(item.date.split(' ')[0]);
@@ -751,22 +842,15 @@
                         const nameStr = item.name || '';
                         if(nameStr.includes('外資') || nameStr.includes('Foreign')) {
                             txOI[idx] = item.open_interest_net_volume !== undefined ? item.open_interest_net_volume : ((item.long_open_interest - item.short_open_interest) || 0);
-                            if(txOI[idx] !== 0) futuresValidCount++;
                         }
                     }
                 });
             } 
-            if(futuresValidCount === 0) {
-                isFuturesMocked = true;
-                let oi = -15000;
-                for(let i=0; i<dates.length; i++) { oi += (Math.random()-0.5)*4000; if(oi > 15000) oi = 15000; if(oi < -35000) oi = -35000; txOI[i] = Math.floor(oi); }
-            }
 
             const rsi = calcRSI(prices), kd = calcKD(highs, lows, prices), macd = calcMACD(prices);
             const obv = calcOBV(prices, volumes);
             const obv30 = calcMA(obv, 30); 
             const obv60 = calcMA(obv, 60); 
-            
             const bbw = calcBBW(prices);
             const bbw3 = calcEMA(bbw, 3); 
             
@@ -789,23 +873,15 @@
 
             ApiQueue.add(`https://api.finmindtrade.com/api/v4/data?dataset=TaiwanStockNews&data_id=${stockId}&start_date=${shortSD}&end_date=${eD}`).then(res => {
                 const ul = document.getElementById('newsList');
-                let html = '';
                 if(!res.error && res.data && res.data.length>0) {
-                    html = res.data.reverse().slice(0,5).map(n => `<li class="py-2 border-b border-gray-700 last:border-0 hover:bg-gray-700/50"><a href="${n.link}" target="_blank" class="flex flex-col gap-1"><div class="flex items-center gap-2"><span class="text-[10px] text-gray-500 font-mono">${n.date.substring(5,10)}</span><span class="text-[10px] bg-blue-900/40 text-blue-400 px-1.5 rounded">${n.source}</span></div><span class="text-sm text-gray-300 line-clamp-1">${n.title}</span></a></li>`).join('');
+                    ul.innerHTML = res.data.reverse().slice(0,5).map(n => `<li class="py-2 border-b border-gray-700 last:border-0 hover:bg-gray-700/50"><a href="${n.link}" target="_blank" class="flex flex-col gap-1"><div class="flex items-center gap-2"><span class="text-[10px] text-gray-500 font-mono">${n.date.substring(5,10)}</span><span class="text-[10px] bg-blue-900/40 text-blue-400 px-1.5 rounded">${n.source}</span></div><span class="text-sm text-gray-300 line-clamp-1">${n.title}</span></a></li>`).join('');
                 } else {
-                    html = `<li class="py-4 text-sm text-gray-500 text-center">近期無重大新聞</li>`;
+                    ul.innerHTML = `<li class="py-4 text-sm text-gray-500 text-center">近期無重大新聞</li>`;
                 }
-
-                let warnings = [];
-                if (isInstMocked) warnings.push('法人'); if (isMarginMocked) warnings.push('信用'); if (isFuturesMocked) warnings.push('期指');
-                if (warnings.length > 0) {
-                    html = `<li class="py-2 border-b border-gray-700 bg-yellow-900/20 px-2 rounded mb-2"><span class="text-sm font-bold text-yellow-500 flex items-center gap-1">⚠️ <span>因未綁定金鑰觸發API限流，【${warnings.join('、')}】圖表已啟動防呆模擬。請設定 Token。</span></span></li>` + html;
-                }
-                ul.innerHTML = html;
             });
 
             memoryCache[stockId] = globalStockData;
-            msgDiv.classList.add('hidden'); homeView.classList.remove('opacity-0');
+            msgDiv.classList.add('hidden'); 
             updateDashboardUI(currentTimeRange);
         } catch (e) {
             text.textContent = '獲取股價失敗，請確認代碼正確或稍後再試。'; icon.className = 'text-xl'; icon.textContent = '⚠️';
@@ -816,11 +892,50 @@
 
     // --- 頁面與頁籤切換 ---
     function switchDataTab(tabId, btnElement) { document.querySelectorAll('.data-tab').forEach(el => el.classList.add('view-hidden')); document.getElementById(tabId).classList.remove('view-hidden'); document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active')); btnElement.classList.add('active'); Object.values(charts).forEach(c => c.resize()); }
+    
     function switchView(viewName) {
-        currentView = viewName; document.getElementById('view-home').classList.add('view-hidden'); document.getElementById('view-watchlist').classList.add('view-hidden');
-        document.getElementById('nav-desktop-home').className = 'px-3 py-1.5 rounded-md ' + (viewName==='home'?'font-bold text-white bg-blue-600':'font-medium text-gray-400'); document.getElementById('nav-desktop-watchlist').className = 'px-3 py-1.5 rounded-md ' + (viewName==='watchlist'?'font-bold text-white bg-blue-600':'font-medium text-gray-400');
-        if (viewName === 'home') { document.getElementById('view-home').classList.remove('view-hidden'); setTimeout(() => { Object.values(charts).forEach(c => c.resize()); }, 50); } 
-        else { document.getElementById('view-watchlist').classList.remove('view-hidden'); renderWatchlistPage(); }
+        currentView = viewName; 
+        document.getElementById('view-home').classList.add('view-hidden'); 
+        document.getElementById('view-watchlist').classList.add('view-hidden');
+        document.getElementById('view-market').classList.add('view-hidden');
+        
+        // 電腦版 Navbar 狀態更新
+        document.getElementById('nav-desktop-home').className = 'px-3 py-1.5 rounded-md ' + (viewName==='home'?'font-bold text-white bg-blue-600':'font-medium text-gray-400 hover:text-white hover:bg-gray-700');
+        document.getElementById('nav-desktop-watchlist').className = 'px-3 py-1.5 rounded-md ' + (viewName==='watchlist'?'font-bold text-white bg-blue-600':'font-medium text-gray-400 hover:text-white hover:bg-gray-700');
+        document.getElementById('nav-desktop-market').className = 'px-3 py-1.5 rounded-md ' + (viewName==='market'?'font-bold text-white bg-blue-600':'font-medium text-gray-400 hover:text-white hover:bg-gray-700');
+        
+        // 手機版 Navbar 狀態更新
+        const updateMobileNav = (id, isActive, icon, text) => {
+            const el = document.getElementById(id);
+            if(el) {
+                el.className = `flex flex-col items-center justify-center w-16 active:scale-95 transition-transform ${isActive ? 'text-blue-500' : 'text-gray-500 hover:text-blue-500'}`;
+                el.innerHTML = `<span class="text-xl mb-1 ${isActive ? 'drop-shadow' : 'opacity-70'}">${icon}</span><span class="text-[10px] ${isActive ? 'font-bold' : 'font-medium'}">${text}</span>`;
+            }
+        };
+        updateMobileNav('nav-mobile-home', viewName === 'home', '🏠', '首頁');
+        updateMobileNav('nav-mobile-watchlist', viewName === 'watchlist', '📋', '自選股');
+        updateMobileNav('nav-mobile-market', viewName === 'market', '📈', '大盤動態');
+
+        // 搜尋框顯示邏輯：只有在首頁時顯示在 Header
+        if (viewName === 'home' && window.innerWidth >= 640) {
+            document.getElementById('searchContainer').classList.remove('hidden');
+        } else {
+            // 在其他頁面或手機版，預設隱藏以維持版面簡潔，可透過點擊按鈕呼叫
+            document.getElementById('searchContainer').classList.remove('hidden'); // 為了方便操作，電腦版仍保留
+        }
+
+        // 視圖渲染邏輯
+        if (viewName === 'home') { 
+            document.getElementById('view-home').classList.remove('view-hidden'); 
+            setTimeout(() => { Object.values(charts).forEach(c => c.resize()); }, 50); 
+        } else if (viewName === 'watchlist') { 
+            document.getElementById('view-watchlist').classList.remove('view-hidden'); 
+            renderWatchlistPage(); 
+        } else if (viewName === 'market') {
+            document.getElementById('view-market').classList.remove('view-hidden');
+            loadMarketDynamic();
+            setTimeout(() => { charts.marketMain.resize(); }, 50);
+        }
     }
 
     // --- 自選股邏輯 ---
@@ -861,9 +976,23 @@
     }
 
     document.addEventListener('DOMContentLoaded', () => {
-        initCharts(); fetchRealStockData('2330');
-        document.getElementById('searchBtn').addEventListener('click', () => { const q=document.getElementById('searchInput').value.trim(); if(q){ switchView('home'); fetchRealStockData(q); } });
-        document.getElementById('searchInput').addEventListener('keypress', (e) => { if(e.key==='Enter') document.getElementById('searchBtn').click(); });
+        initCharts(); 
+        
+        // 預設進入大盤頁面，並加載首頁所需的資料但不顯示
+        switchView('market'); 
+        fetchRealStockData('2330');
+
+        const executeSearch = () => { 
+            const q=document.getElementById('searchInput').value.trim(); 
+            if(q){ 
+                switchView('home'); 
+                fetchRealStockData(q); 
+                window.scrollTo(0,0);
+            } 
+        };
+
+        document.getElementById('searchBtn').addEventListener('click', executeSearch);
+        document.getElementById('searchInput').addEventListener('keypress', (e) => { if(e.key==='Enter') executeSearch(); });
         document.getElementById('followBtn').addEventListener('click', toggleWatchlist);
         document.querySelectorAll('.time-btn').forEach(btn => btn.addEventListener('click', (e) => {
             if(!globalStockData)return; document.querySelectorAll('.time-btn').forEach(b=>b.className='time-btn flex-1 sm:flex-none px-3 py-1.5 text-sm font-medium rounded-md text-gray-400 hover:text-white transition-colors');
@@ -871,7 +1000,10 @@
             currentTimeRange = parseInt(e.target.dataset.days); updateDashboardUI(currentTimeRange);
         }));
     });
-    window.addEventListener('resize', () => { if(currentView==='home') Object.values(charts).forEach(c=>c.resize()); });
+    window.addEventListener('resize', () => { 
+        if(currentView==='home') Object.values(charts).forEach(c=>c.resize()); 
+        else if (currentView==='market') charts.marketMain.resize();
+    });
 </script>
 </body>
 </html>
