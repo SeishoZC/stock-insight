@@ -673,69 +673,128 @@
     function toggleWatchlist() { if(!currentStockId)return; let l=getWatchlist(); l.includes(currentStockId)?l.splice(l.indexOf(currentStockId),1):l.push(currentStockId); saveWatchlist(l); updateFollowBtnUI(); }
     function updateFollowBtnUI() { const b=document.getElementById('followBtn'); b.innerHTML=getWatchlist().includes(currentStockId)?'★':'☆'; b.className=`absolute top-4 right-5 text-3xl transition-transform transform hover:scale-110 active:scale-95 focus:outline-none ${getWatchlist().includes(currentStockId)?'text-yellow-400':'text-gray-600 hover:text-yellow-400'}`; }
 
-    //    function renderDashboardPage() {
+    async function renderDashboardPage() {
         const buyListContainer = document.getElementById('dash-buy-list');
         const sellListContainer = document.getElementById('dash-sell-list');
         const watchListContainer = document.getElementById('dash-watch-list');
 
-        buyListContainer.innerHTML = '<div class="text-center py-10 text-gray-500"><span class="loader mr-2"></span>AI 演算法偵測中...</div>';
-        sellListContainer.innerHTML = '<div class="text-center py-10 text-gray-500"><span class="loader mr-2"></span>AI 演算法偵測中...</div>';
-        watchListContainer.innerHTML = '<div class="text-center py-10 text-gray-500"><span class="loader mr-2"></span>大數據篩選中...</div>';
+        const list = getWatchlist();
+        
+        // 若自選股為空，提示使用者加入
+        if (list.length === 0) {
+            const emptyHtml = `<div class="bg-gray-800/50 rounded-xl p-6 border border-gray-700 text-center text-sm text-gray-400">尚未加入自選股。<br><br>請先從右上角搜尋您關注的股票，並點擊右上角的星號(⭐)加入，戰情室將為您 24H 盯盤。</div>`;
+            buyListContainer.innerHTML = emptyHtml;
+            sellListContainer.innerHTML = emptyHtml;
+            watchListContainer.innerHTML = emptyHtml;
+            return;
+        }
 
-        // 模擬伺服器掃描延遲 (提升真實感)
-        setTimeout(() => {
-            // 隨機挑選作為示範 (實戰中會連接後端 Screener API)
-            const buyCandidates = [
-                { id: "2330", name: "台積電", price: 955, pct: "+2.3%", reason: "KD黃金交叉 / 法人連三買", tags: ["技術強勢", "外資青睞"] },
-                { id: "2382", name: "廣達", price: 290, pct: "+4.1%", reason: "MACD柱狀圖翻紅 / 量增", tags: ["動能轉強", "突破月線"] },
-                { id: "2603", name: "長榮", price: 205, pct: "+1.5%", reason: "RSI超賣區反轉向上", tags: ["低檔反彈"] }
-            ];
+        buyListContainer.innerHTML = '<div class="text-center py-10 text-gray-500"><span class="loader mr-2"></span>分析您的自選名單中...</div>';
+        sellListContainer.innerHTML = '<div class="text-center py-10 text-gray-500"><span class="loader mr-2"></span>分析您的自選名單中...</div>';
+        watchListContainer.innerHTML = '<div class="text-center py-10 text-gray-500"><span class="loader mr-2"></span>大數據篩選觀察名單...</div>';
 
-            const sellCandidates = [
-                { id: "2454", name: "聯發科", price: 1250, pct: "-3.2%", reason: "跌破20日均線 / KD死叉", tags: ["技術弱勢", "跌破支撐"] },
-                { id: "2317", name: "鴻海", price: 195, pct: "-1.8%", reason: "外資由買轉賣 / 高檔爆量", tags: ["籌碼鬆動", "高檔爆量"] },
-                { id: "2881", name: "富邦金", price: 85, pct: "-0.5%", reason: "布林帶寬收斂且跌破EMA", tags: ["動能衰退"] }
-            ];
+        const buyCandidates = [];
+        const sellCandidates = [];
+        const watchCandidates = [];
 
-            const watchCandidates = [
-                { id: "2308", name: "台達電", price: 388, pct: "+0.5%", reason: "量縮打底 / 靠近季線支撐", tags: ["量縮整理", "防禦抗跌"] },
-                { id: "2891", name: "中信金", price: 36, pct: "+0.0%", reason: "高殖利率護體 / 法人低接", tags: ["存股優選", "籌碼穩定"] },
-                { id: "3231", name: "緯創", price: 105, pct: "-0.5%", reason: "乖離率過大，醞釀跌深反彈", tags: ["超跌反彈"] }
-            ];
+        // 針對自選股清單進行背景平行運算
+        const tasks = list.map(async (t) => {
+            try {
+                const twseData = await fetchTWSEData(t);
+                if (twseData && twseData.length > 30) {
+                    const prices=[], highs=[], lows=[], volumes=[];
+                    twseData.forEach(x => { prices.push(x.close); highs.push(x.high); lows.push(x.low); volumes.push(x.volume); });
+                    
+                    const i = prices.length - 1;
+                    const c = prices[i], p = prices[i-1];
+                    const diff = (c-p).toFixed(2);
+                    const pct = ((diff/p)*100).toFixed(2);
+                    const sign = diff > 0 ? '+' : '';
+                    
+                    // 獨立計算該檔股票的技術指標
+                    const kdArr = calcKD(highs, lows, prices);
+                    const macdArr = calcMACD(prices);
+                    const ma20 = calcMA(prices, 20); // 20日均線 (月線)
+                    
+                    const k = kdArr.k[i], d = kdArr.d[i], prevK = kdArr.k[i-1], prevD = kdArr.d[i-1];
+                    const osc = macdArr.osc[i], prevOsc = macdArr.osc[i-1];
+                    
+                    let isBuy = false;
+                    let isSell = false;
+                    let reason = "";
+                    let tags = [];
 
-            const generateCard = (item, type) => {
-                const isBuy = type === 'buy';
-                const isSell = type === 'sell';
-                const baseColor = isBuy ? 'red' : (isSell ? 'green' : 'blue');
-                const pulseClass = isBuy ? 'pulse-red' : '';
-                
-                return `
-                    <div onclick="document.getElementById('searchInput').value='${item.id}'; document.getElementById('searchBtn').click();" 
-                         class="bg-gray-800 rounded-xl p-4 border border-gray-700 cursor-pointer metric-card ${pulseClass}">
-                        <div class="flex justify-between items-start mb-2">
-                            <div>
-                                <h4 class="text-lg font-bold text-gray-100">${item.name} <span class="text-xs text-gray-400 font-normal ml-1">${item.id}</span></h4>
-                            </div>
-                            <div class="text-right">
-                                <div class="text-lg font-bold ${isSell ? 'text-down' : 'text-up'}">${item.price}</div>
-                                <div class="text-xs font-medium ${isSell ? 'text-down' : 'text-up'}">${item.pct}</div>
-                            </div>
+                    // ===== 核心演算法：多空交叉判斷邏輯 =====
+                    if (prevK < prevD && k >= d) { 
+                        isBuy = true; reason = "KD 黃金交叉"; tags.push("技術強勢", "波段起漲"); 
+                    } else if (prevOsc <= 0 && osc > 0) { 
+                        isBuy = true; reason = "MACD 柱狀圖翻紅"; tags.push("動能轉強"); 
+                    } else if (prices[i-1] < ma20[i-1] && prices[i] > ma20[i]) { 
+                        isBuy = true; reason = "突破 20 日均線(月線)"; tags.push("趨勢轉多", "站上支撐"); 
+                    } else if (prevK > prevD && k <= d) { 
+                        isSell = true; reason = "KD 死亡交叉"; tags.push("技術弱勢", "高檔反轉"); 
+                    } else if (prevOsc >= 0 && osc < 0) { 
+                        isSell = true; reason = "MACD 柱狀圖翻綠"; tags.push("動能轉弱"); 
+                    } else if (prices[i-1] > ma20[i-1] && prices[i] < ma20[i]) { 
+                        isSell = true; reason = "跌破 20 日均線(月線)"; tags.push("趨勢轉空", "跌破支撐"); 
+                    } else { 
+                        reason = "量縮打底 / 靠近均線整理中"; tags.push("整理中", "籌碼沉澱"); 
+                    }
+
+                    const itemData = { 
+                        id: t, 
+                        name: stockNames[t] || '個股', 
+                        price: formatNum(c), 
+                        pct: `${sign}${pct}%`, 
+                        reason: reason, 
+                        tags: tags 
+                    };
+                    
+                    if (isBuy) buyCandidates.push(itemData);
+                    else if (isSell) sellCandidates.push(itemData);
+                    else watchCandidates.push(itemData);
+                }
+            } catch(e) {
+                console.warn(`Failed to process stock ${t}`, e);
+            }
+        });
+
+        await Promise.all(tasks);
+
+        const generateCard = (item, type) => {
+            const isBuy = type === 'buy';
+            const isSell = type === 'sell';
+            const baseColor = isBuy ? 'red' : (isSell ? 'green' : 'blue');
+            const pulseClass = isBuy ? 'pulse-red' : '';
+            const txtColorClass = isSell ? 'text-down' : 'text-up';
+            
+            return `
+                <div onclick="document.getElementById('searchInput').value='${item.id}'; document.getElementById('searchBtn').click();" 
+                     class="bg-gray-800 rounded-xl p-4 border border-gray-700 cursor-pointer metric-card ${pulseClass}">
+                    <div class="flex justify-between items-start mb-2">
+                        <div>
+                            <h4 class="text-lg font-bold text-gray-100">${item.name} <span class="text-xs text-gray-400 font-normal ml-1">${item.id}</span></h4>
                         </div>
-                        <p class="text-sm text-gray-300 font-medium mb-3 flex items-center gap-1">
-                            ${isBuy ? '📈' : (isSell ? '📉' : '💡')} ${item.reason}
-                        </p>
-                        <div class="flex gap-2">
-                            ${item.tags.map(t => `<span class="text-[10px] bg-${baseColor}-900/30 text-${baseColor}-400 px-2 py-0.5 rounded border border-${baseColor}-800">${t}</span>`).join('')}
+                        <div class="text-right">
+                            <div class="text-lg font-bold ${txtColorClass}">${item.price}</div>
+                            <div class="text-xs font-medium ${txtColorClass}">${item.pct}</div>
                         </div>
                     </div>
-                `;
-            };
+                    <p class="text-sm text-gray-300 font-medium mb-3 flex items-center gap-1">
+                        ${isBuy ? '📈' : (isSell ? '📉' : '💡')} ${item.reason}
+                    </p>
+                    <div class="flex gap-2">
+                        ${item.tags.map(t => `<span class="text-[10px] bg-${baseColor}-900/30 text-${baseColor}-400 px-2 py-0.5 rounded border border-${baseColor}-800">${t}</span>`).join('')}
+                    </div>
+                </div>
+            `;
+        };
 
-            buyListContainer.innerHTML = buyCandidates.map(i => generateCard(i, 'buy')).join('');
-            sellListContainer.innerHTML = sellCandidates.map(i => generateCard(i, 'sell')).join('');
-            watchListContainer.innerHTML = watchCandidates.map(i => generateCard(i, 'watch')).join('');
+        const emptyMsg = (type) => `<div class="bg-gray-800/50 rounded-xl p-4 border border-gray-700 text-center text-sm text-gray-500">自選名單中，今日無符合【${type}】條件的標的</div>`;
 
-        }, 800); // 模擬載入時間
+        buyListContainer.innerHTML = buyCandidates.length > 0 ? buyCandidates.map(i => generateCard(i, 'buy')).join('') : emptyMsg('強勢買點');
+        sellListContainer.innerHTML = sellCandidates.length > 0 ? sellCandidates.map(i => generateCard(i, 'sell')).join('') : emptyMsg('弱勢賣點');
+        watchListContainer.innerHTML = watchCandidates.length > 0 ? watchCandidates.map(i => generateCard(i, 'watch')).join('') : emptyMsg('潛力觀察');
     }
 
     // ==================== ★ 自選股：區塊方塊化渲染 ★ ====================
